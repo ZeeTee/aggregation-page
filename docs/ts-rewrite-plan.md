@@ -670,3 +670,70 @@ API 进程起不来(Vite 代理报 ECONNREFUSED)。`RateLimiter` 有同样问题
 ### 待办(P5 需要的准备)
 
 - `TOOLBOX_API_KEY` 已进 `.env.example`,但**校验中间件尚未实现**(P5 实现 DSH 地址工具时一起加)
+
+---
+
+## 16. P3 实施记录(上线切换)
+
+### 切换动作
+
+```bash
+# 1. 保留 Python 单元作为回滚路径(不 enable,不会开机自启)
+#    /etc/systemd/system/aggregation-page-python.service
+# 2. 换成 Node 单元
+cp deploy/aggregation-page.service /etc/systemd/system/aggregation-page.service
+systemctl daemon-reload && systemctl restart aggregation-page
+```
+
+切换前后基线:
+
+| 项 | 切换前(Python) | 切换后(Node) |
+| --- | --- | --- |
+| 进程 | `python3 serve.py` | `node dist-server/index.js` |
+| `/tools.json` count | 1(TS 工具被守卫跳过) | **2**(两个工具都在) |
+| `/tools/timestamp/` | 404 | **200** |
+| 内存 | 11.4 MB | **16 MB**(`MemoryMax=384M`) |
+| 启动 | 秒级 | 秒级 |
+
+### 验收实测
+
+| 项 | 结果 |
+| --- | --- |
+| 本地冒烟(8080) | **14/14** |
+| 线上冒烟(经 Cloudflare) | **14/14** |
+| 线上 `/api/health` | `{"ok":true,...,"tools":2}` |
+| 线上安全头 | CSP / nosniff / no-referrer 全部保留 |
+| Cloudflare 缓存 | `cf-cache-status: DYNAMIC`(符合 `no-cache` 预期) |
+| 中断时长 | 约 1–2 秒(restart 期间) |
+
+### 发现:目录穿越在边缘就被拦掉
+
+`/%2e%2e%2fpackage.json` 的实测表现:
+
+| 链路 | 状态码 | 说明 |
+| --- | --- | --- |
+| 直连源站 8080 | **403** | `resolveWithin` 判定越界 |
+| 经 Cloudflare | **400**(无 `cf-ray`) | **边缘先拦下,请求根本没到源站** |
+
+这是纵深防御的正常结果,不是缺陷。冒烟脚本因此支持"多个可接受状态码"
+(`expect: [403, 400]`),并注明原因。
+
+### 回滚方法(保留一周)
+
+```bash
+sudo systemctl stop aggregation-page
+sudo systemctl start aggregation-page-python
+```
+
+稳定运行一周后清理:删除 `aggregation-page-python.service`、删除 Python 实现
+(`build.py` / `serve.py` / `aggregation_page/`)、删除 `public/`。
+
+### 下一步(P5:DSH 登录地址工具)
+
+前置条件已全部就绪(§12 已定义接口、密钥约定;`/api` 骨架与鉴权位置已留好)。实现内容:
+
+1. `server/security.ts` 增加 `requireApiKey()`(常量时间比较;密钥未配置 → 503)
+2. `server/routes/dsh.ts`:`GET /api/dsh/login-url` —— 取 pm2 日志最后一条 token → 带
+   `Host: dsh.zeetng.cloud` 做 303 校验 → 返回地址;5 秒校验结果缓存;日志只打前 8 位
+3. `tools/dsh-url/`:按钮 + 密钥输入(localStorage)+ 复制/打开 + 失效提示
+4. 测试:密钥校验分支、日志解析、303 校验(打桩)、前端渲染

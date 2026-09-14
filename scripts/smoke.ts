@@ -21,7 +21,8 @@ const base = isPublic ? 'https://www.zeetng.cloud' : `http://127.0.0.1:${port}`;
 
 interface Check {
   path: string;
-  expect: number;
+  /** 期望状态码;给数组表示"其中之一即可"(例如边缘与源站都拦时状态码不同) */
+  expect: number | number[];
   method?: string;
   body?: string;
   headers?: Record<string, string>;
@@ -54,10 +55,11 @@ const checks: Check[] = [
   { path: '/api/echo', expect: 400, method: 'POST', body: '{bad json', headers: { 'Content-Type': 'application/json' } },
   { path: '/api/nope', expect: 404 },
   // 安全:目录穿越必须被挡住
-  // (URL 解析器会把 /../ 与 /%2e%2e/ 归一化掉,所以这两种只会 404;
-  //  真正考验 resolveWithin 的是下面这种"段内编码斜杠"的写法)
+  // · /../ 会被 URL 解析器归一化成 /package.json → 404
+  // · /%2e%2e%2f 是"段内编码斜杠",源站 resolveWithin 返回 403;
+  //   走 Cloudflare 时边缘会先以 400 拦下(请求根本到不了源站),两者都算通过
   { path: '/../package.json', expect: 404 },
-  { path: '/%2e%2e%2fpackage.json', expect: 403 },
+  { path: '/%2e%2e%2fpackage.json', expect: [403, 400] },
 ];
 
 let failed = 0;
@@ -65,6 +67,7 @@ console.log(`>> 冒烟目标:${base}`);
 
 for (const check of checks) {
   const method = check.method ?? 'GET';
+  const expected = Array.isArray(check.expect) ? check.expect : [check.expect];
   let status: number | string = 'ERR';
   try {
     const response = await fetch(`${base}${check.path}`, {
@@ -80,9 +83,9 @@ for (const check of checks) {
     status = `ERR ${(error as Error).message}`;
   }
 
-  const pass = status === check.expect;
+  const pass = expected.includes(status as number);
   if (!pass) failed += 1;
-  console.log(`   ${pass ? '✓' : '✗'} ${String(status).padStart(3)} (期望 ${check.expect})  ${method} ${check.path}`);
+  console.log(`   ${pass ? '✓' : '✗'} ${String(status).padStart(3)} (期望 ${expected.join(' / ')})  ${method} ${check.path}`);
 }
 
 console.log(failed === 0 ? `>> 全部通过(${checks.length} 项)` : `>> 失败 ${failed} / ${checks.length} 项`);
