@@ -1,5 +1,6 @@
 /** 安全响应头与限流。站点经 Cloudflare 隧道对公网开放,这些是基本盘。 */
 
+import { timingSafeEqual } from 'node:crypto';
 import type { ServerResponse } from 'node:http';
 
 /**
@@ -81,4 +82,61 @@ export function clientIp(headers: Record<string, string | string[] | undefined>,
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   if (typeof raw === 'string' && raw !== '') return raw.split(',')[0]!.trim();
   return socketAddress ?? 'unknown';
+}
+
+/**
+ * 共享密钥比较:常量时间,避免通过响应时间逐字节猜密钥。
+ *
+ * 注意:长度不同会立刻返回 false(会泄漏长度信息,这是常见取舍)——
+ * 密钥长度本身不算机密,真正要防的是逐字节试探。
+ */
+export function apiKeyMatches(provided: string | undefined, expected: string): boolean {
+  if (provided === undefined || expected === '') return false;
+  const a = Buffer.from(provided, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.byteLength !== b.byteLength) return false;
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * 全局失败预算:抵御**分布式**爆破。
+ *
+ * 单 IP 限流挡不住换 IP 的攻击者,所以这里统计**所有来源**的鉴权失败次数:
+ * 在 windowMs 内累计失败达到 limit 次,整个接口冷却 cooldownMs。
+ * 正常使用时几乎不会触发(自己输错一两次不会锁)。
+ */
+export class FailureBudget {
+  private failures: number[] = [];
+  private blockedUntil = 0;
+  private readonly limit: number;
+  private readonly windowMs: number;
+  private readonly cooldownMs: number;
+
+  constructor(limit: number, windowMs = 600_000, cooldownMs = 600_000) {
+    this.limit = limit;
+    this.windowMs = windowMs;
+    this.cooldownMs = cooldownMs;
+  }
+
+  recordFailure(now = Date.now()): void {
+    this.failures.push(now);
+    this.prune(now);
+    if (this.failures.length >= this.limit) {
+      this.blockedUntil = now + this.cooldownMs;
+      this.failures = [];
+    }
+  }
+
+  blocked(now = Date.now()): boolean {
+    return now < this.blockedUntil;
+  }
+
+  retryAfterSeconds(now = Date.now()): number {
+    return Math.max(0, Math.ceil((this.blockedUntil - now) / 1000));
+  }
+
+  private prune(now: number): void {
+    const cutoff = now - this.windowMs;
+    while (this.failures.length > 0 && this.failures[0]! < cutoff) this.failures.shift();
+  }
 }

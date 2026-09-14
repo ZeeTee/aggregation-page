@@ -67,7 +67,11 @@ const server = createApp({
   version: readVersion(),
   log,
   apiRateLimit: env.apiRateLimit,
+  authRateLimit: env.authRateLimit,
+  authFailureBudget: env.authFailureBudget,
+  apiKey: env.apiKey,
   toolsCount: makeToolsCounter(env.distDir),
+  dsh: env.dsh,
   ...(existsSync(notFoundPage) ? { notFoundPage } : {}),
 });
 
@@ -77,7 +81,9 @@ server.listen(env.port, env.host, () => {
     distDir: env.distDir,
     tools: makeToolsCounter(env.distDir)(),
     apiRateLimit: env.apiRateLimit,
+    authRateLimit: env.authRateLimit,
     apiKeyConfigured: env.apiKey !== '',
+    dshHost: env.dsh.publicHost,
     logLevel: env.logLevel,
   });
 });

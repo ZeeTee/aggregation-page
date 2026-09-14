@@ -6,11 +6,12 @@
  *
  * 新增业务接口的步骤:
  *   1. 在 server/routes/ 下新建 xxx.ts,导出一个返回 Route 的工厂函数
- *   2. 在此处注册
+ *   2. 在此处注册(需要凭据的接口标 auth: true)
  *   3. 在 src/shared/types.ts 里补上请求/响应类型(前后端共用)
  */
 
 import type { Route } from '../api.ts';
+import { dshRoute, type DshRouteDeps } from './dsh.ts';
 import { echoRoute } from './echo.ts';
 import { healthRoute } from './health.ts';
 import { toolsRoute } from './tools.ts';
@@ -20,8 +21,10 @@ export interface RouteDeps {
   distDir: string;
   /** 当前构建产物的工具数量(读 tools.json,带缓存) */
   toolsCount: () => number;
+  /** DSH 地址接口配置(来自环境变量) */
+  dsh: DshRouteDeps;
 }
 
 export function buildRoutes(deps: RouteDeps): Route[] {
-  return [healthRoute(deps), toolsRoute(deps), echoRoute()];
+  return [healthRoute(deps), toolsRoute(deps), echoRoute(), dshRoute(deps.dsh)];
 }

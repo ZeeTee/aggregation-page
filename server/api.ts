@@ -9,6 +9,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { Logger } from './log.ts';
+import { type FailureBudget, type RateLimiter, apiKeyMatches } from './security.ts';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
@@ -29,6 +30,13 @@ export interface Route {
   method: HttpMethod;
   /** 精确路径,例如 '/api/health' */
   path: string;
+  /**
+   * 需要共享密钥(TOOLBOX_API_KEY)。开启后:
+   *   · 未配置密钥 → 503(fail-closed,绝不放行)
+   *   · 密钥错误   → 401,并计入全局失败预算
+   *   · 使用更严格的独立限流(opts.authRateLimiter)
+   */
+  auth?: boolean;
   handle: ApiHandler;
 }
 
@@ -55,6 +63,14 @@ export interface ApiRouterOptions {
   maxBodyBytes?: number;
   /** 单请求超时,默认 10s */
   timeoutMs?: number;
+  /** 普通 /api 接口限流 */
+  rateLimiter?: RateLimiter;
+  /** 需要鉴权的接口的独立限流(应比普通接口更严格) */
+  authRateLimiter?: RateLimiter;
+  /** 全局鉴权失败预算(防分布式爆破) */
+  authFailureBudget?: FailureBudget;
+  /** 共享密钥;空字符串或缺省表示未配置 */
+  apiKey?: string;
 }
 
 const DEFAULT_MAX_BODY = 64 * 1024;
@@ -137,6 +153,42 @@ export function createApiRouter(
         Allow: byPath.map((r) => r.method).join(', '),
       });
       return true;
+    }
+
+    // 限流:需要鉴权的接口走更严格的独立配额
+    const needsAuth = route.auth === true;
+    const limiter = needsAuth ? (options.authRateLimiter ?? options.rateLimiter) : options.rateLimiter;
+    if (limiter !== undefined && !limiter.allow(ip)) {
+      fail(res, 429, 'rate_limited', '请求过于频繁,请稍后再试', {
+        'Retry-After': String(limiter.retryAfterSeconds(ip)),
+      });
+      return true;
+    }
+
+    // 共享密钥校验(fail-closed)
+    if (needsAuth) {
+      const budget = options.authFailureBudget;
+      if (budget !== undefined && budget.blocked()) {
+        log.warn('auth temporarily locked', { path, ip, retryAfter: budget.retryAfterSeconds() });
+        fail(res, 429, 'auth_locked', '因失败次数过多,鉴权接口暂时关闭,请稍后再试', {
+          'Retry-After': String(budget.retryAfterSeconds()),
+        });
+        return true;
+      }
+      const expected = options.apiKey ?? '';
+      if (expected === '') {
+        log.error('api key not configured', { path });
+        fail(res, 503, 'api_key_not_configured', '服务端未配置 TOOLBOX_API_KEY,该接口不可用');
+        return true;
+      }
+      const provided = req.headers['x-api-key'];
+      const value = Array.isArray(provided) ? provided[0] : provided;
+      if (!apiKeyMatches(value, expected)) {
+        budget?.recordFailure();
+        log.warn('api key rejected', { path, ip });
+        fail(res, 401, 'unauthorized', '密钥不正确');
+        return true;
+      }
     }
 
     try {

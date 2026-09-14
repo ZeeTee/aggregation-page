@@ -2,34 +2,51 @@
  * HTTP 服务组装:把静态托管、/api 路由、限流、安全头、日志接在一起。
  *
  * 与入口(index.ts)分离是为了**可测试**:测试里可以用临时端口直接起这个 server。
+ * 限流与鉴权都在路由层决策(它才知道命中哪条路由、是否需要密钥)。
  */
 
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
-import { createApiRouter, fail } from './api.ts';
+import { createApiRouter } from './api.ts';
 import type { Logger } from './log.ts';
-import { buildRoutes } from './routes/index.ts';
-import { RateLimiter, applySecurityHeaders, clientIp } from './security.ts';
+import { buildRoutes, type RouteDeps } from './routes/index.ts';
+import { FailureBudget, RateLimiter, applySecurityHeaders, clientIp } from './security.ts';
 import { serveStatic } from './static.ts';
 
 export interface AppOptions {
   distDir: string;
   version: string;
   log: Logger;
-  /** 每个 IP 每分钟的 /api 请求上限 */
+  /** 每个 IP 每分钟的 /api 请求上限(普通接口) */
   apiRateLimit?: number;
+  /** 需要鉴权的接口的独立上限(应更严格) */
+  authRateLimit?: number;
+  /** 全局鉴权失败预算 */
+  authFailureBudget?: number;
+  /** 共享密钥;缺省或空字符串表示未配置(需要鉴权的接口会 503) */
+  apiKey?: string;
   toolsCount: () => number;
+  /** DSH 地址接口配置 */
+  dsh: RouteDeps['dsh'];
   /** 自定义 404 页面路径(通常 dist/404.html) */
   notFoundPage?: string;
 }
 
 export function createApp(options: AppOptions): Server {
-  const apiRouter = createApiRouter(
-    buildRoutes({ version: options.version, distDir: options.distDir, toolsCount: options.toolsCount }),
-    { log: options.log },
-  );
-  const limiter = new RateLimiter(options.apiRateLimit ?? 60);
+  const deps: RouteDeps = {
+    version: options.version,
+    distDir: options.distDir,
+    toolsCount: options.toolsCount,
+    dsh: options.dsh,
+  };
+  const apiRouter = createApiRouter(buildRoutes(deps), {
+    log: options.log,
+    rateLimiter: new RateLimiter(options.apiRateLimit ?? 60),
+    authRateLimiter: new RateLimiter(options.authRateLimit ?? 5),
+    authFailureBudget: new FailureBudget(options.authFailureBudget ?? 10),
+    ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
+  });
   const staticOptions = {
     root: options.distDir,
     ...(options.notFoundPage !== undefined ? { notFoundPage: options.notFoundPage } : {}),
@@ -57,12 +74,7 @@ export function createApp(options: AppOptions): Server {
     applySecurityHeaders(res);
 
     try {
-      const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
-      if (isApi && !limiter.allow(ip)) {
-        fail(res, 429, 'rate_limited', '请求过于频繁,请稍后再试', {
-          'Retry-After': String(limiter.retryAfterSeconds(ip)),
-        });
-      } else if (await apiRouter(req, res, url, ip)) {
+      if (await apiRouter(req, res, url, ip)) {
         /* 路由层已写完响应 */
       } else {
         await serveStatic(req, res, url.pathname, staticOptions);

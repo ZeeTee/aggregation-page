@@ -54,6 +54,8 @@ const checks: Check[] = [
   { path: '/api/echo', expect: 415, method: 'POST', body: 'hello', headers: { 'Content-Type': 'text/plain' } },
   { path: '/api/echo', expect: 400, method: 'POST', body: '{bad json', headers: { 'Content-Type': 'application/json' } },
   { path: '/api/nope', expect: 404 },
+  // 需要密钥的接口:未授权必须 401(线上也顺带验证一次鉴权生效)
+  { path: '/api/dsh/login-url', expect: 401 },
   // 安全:目录穿越必须被挡住
   // · /../ 会被 URL 解析器归一化成 /package.json → 404
   // · /%2e%2e%2f 是"段内编码斜杠",源站 resolveWithin 返回 403;

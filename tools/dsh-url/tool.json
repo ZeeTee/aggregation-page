@@ -1,0 +1,9 @@
+{
+  "name": "DSH 登录地址",
+  "description": "一键获取本机 DSH Web UI 的登录地址(含进程 token)。首次使用需输入访问密钥。",
+  "tags": ["运维", "内部"],
+  "icon": "🔑",
+  "status": "ready",
+  "api": true,
+  "order": 5
+}

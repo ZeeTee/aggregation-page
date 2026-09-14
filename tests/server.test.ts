@@ -41,6 +41,13 @@ async function withApp(
     log: silent,
     apiRateLimit: rateLimit,
     toolsCount: () => 1,
+    // 多数用例不关心 DSH 接口,给一份指向空目录的默认配置
+    dsh: {
+      logDir: mkdtempSync(join(tmpdir(), 'agg-no-logs-')),
+      logPrefix: 'dsh-out',
+      publicHost: 'dsh.example.com',
+      port: 3080,
+    },
     ...options,
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));

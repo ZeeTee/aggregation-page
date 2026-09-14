@@ -737,3 +737,62 @@ sudo systemctl start aggregation-page-python
    `Host: dsh.zeetng.cloud` 做 303 校验 → 返回地址;5 秒校验结果缓存;日志只打前 8 位
 3. `tools/dsh-url/`:按钮 + 密钥输入(localStorage)+ 复制/打开 + 失效提示
 4. 测试:密钥校验分支、日志解析、303 校验(打桩)、前端渲染
+
+---
+
+## 17. P5 实施记录(首个后端工具:DSH 登录地址)
+
+### 交付内容
+
+| 文件 | 说明 |
+| --- | --- |
+| `server/security.ts` | 新增 `apiKeyMatches()`(timingSafeEqual)与 `FailureBudget`(全局失败预算) |
+| `server/api.ts` | `Route.auth` 标记 + 路由层统一执行:独立限流 → 失败预算 → 密钥校验(fail-closed) |
+| `server/routes/dsh.ts` | `GET /api/dsh/login-url`:日志取 token → 303 校验 → 返回地址;5s 校验结果缓存 |
+| `server/env.ts` | 新增 `AUTH_RATE_LIMIT` / `AUTH_FAILURE_BUDGET` / `DSH_LOG_DIR` / `DSH_LOG_PREFIX` / `DSH_PUBLIC_HOST` / `DSH_PORT` |
+| `src/shared/api.ts` | 前端 `callApi<T>()`,把失败信封转成带 code 的 `ApiError` |
+| `src/shared/types.ts` | `DshLoginUrl` 前后端共用同一份类型 |
+| `tools/dsh-url/` | 工具页:密钥输入(localStorage)→ 获取 → 打码显示 / 复制 / 打开 / 失效提示 |
+| `.env` / `.env.example` | 密钥与 DSH 相关变量(`.env` 600 权限、不入库) |
+
+### 安全设计(按选定方案 B)
+
+| 风险 | 措施 |
+| --- | --- |
+| 公网匿名调用 | 未配置密钥 → **503**;密钥错误 → 401;密钥只走 `X-Api-Key` 头 |
+| 计时侧信道 | `timingSafeEqual` 常量时间比较 |
+| 单 IP 爆破 | 该接口独立限流 **5 次/分钟/IP**(普通接口 60) |
+| 分布式爆破 | **全局失败预算**:10 分钟内累计失败 10 次 → 整个鉴权接口冷却 10 分钟(429 `auth_locked`) |
+| 凭据泄漏 | 响应 `no-store`;日志只记 token 前 8 位;前端默认打码 + 勿分享提示 |
+| 页面 Referrer 泄漏 | 站点全局 `Referrer-Policy: no-referrer`;密钥与 token 都不进页面 URL |
+
+### 验收实测
+
+| 项 | 结果 |
+| --- | --- |
+| 测试 | **60/60**(新增 `tests/dsh.test.ts` 17 例:密钥比较、失败预算、日志解析、路由分支、HTTP 鉴权集成) |
+| 未带密钥(本地/线上) | 401,响应体不含任何 token 片段 |
+| 错误密钥 | 401;连续错误触发 `429 auth_locked` |
+| 服务端未配置密钥 | 503(fail-closed) |
+| **真实端到端** | 带密钥请求 → 200,返回 `valid: true`,来源 `dsh-out.log:10`,token 前缀与 `dsh-login-url.sh` 输出一致 |
+| 冒烟 | 本地 **16/16**、线上 **16/16**(新增未授权 401 检查) |
+| 线上 | `/tools.json` count = **3**;`/tools/dsh-url/` 200 |
+
+### 关于密钥 `521016`(按要求使用,但需知晓)
+
+6 位纯数字只有 100 万种组合,且形态类似 PIN。已用"独立限流 + 全局失败预算"把风险压到
+"分布式换 IP 猜测,累计 10 次失败即整体冷却 10 分钟",**但这不能替代强密钥**。
+
+更换方式(一条命令):
+
+```bash
+NEW=$(openssl rand -hex 32)
+sed -i "s/^TOOLBOX_API_KEY=.*/TOOLBOX_API_KEY=$NEW/" /root/dshworkspace/aggregation-page/.env
+systemctl restart aggregation-page
+# 然后在工具页面点「更换密钥」重新输入
+```
+
+### 过程中的一个测试改进
+
+门户渲染测试原本把"2 个工具"写死,新增工具后立刻失败。已改为**从 `tools/` 目录动态推导
+期望值**(卡片数、标签集合、搜索结果数),这样以后加工具不用改测试 —— 测试不该复述实现细节。

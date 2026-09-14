@@ -136,12 +136,44 @@ toast('工具已加载');
 | GET | `/api/health` | 存活探针:版本、运行时长、工具数量 |
 | GET | `/api/tools` | 工具清单(读 `dist/tools.json`,带 mtime 缓存) |
 | POST | `/api/echo` | 回显请求体(用于验证 JSON/体积/方法/超时各分支) |
+| GET | `/api/dsh/login-url` | 🔑 **需要 `X-Api-Key`**:返回本机 DSH Web UI 的登录地址(含进程 token) |
 
-新增接口:在 `server/routes/` 建文件导出工厂函数 → 在 `server/routes/index.ts` **显式注册** →
-共享类型补到 `src/shared/types.ts`。注册表是显式的,审查看一眼就知道暴露了什么。
+新增接口:在 `server/routes/` 建文件导出工厂函数 → 在 `server/routes/index.ts` **显式注册**
+(需要凭据的标 `auth: true`)→ 共享类型补到 `src/shared/types.ts`。
 
 接口层统一行为:`/api/*` 每 IP 60 次/分钟(超限 429 + `Retry-After`)、请求体上限 64KB(超限 413)、
 单请求 10 秒超时(504)、响应 `Cache-Control: no-store`。
+
+### 需要密钥的接口(fail-closed)
+
+```bash
+# .env(600 权限,不入库)
+TOOLBOX_API_KEY=<你的密钥>
+
+AUTH_RATE_LIMIT=5        # 这类接口独立限流,比普通接口严格
+AUTH_FAILURE_BUDGET=10   # 全局失败预算:10 分钟内累计失败 10 次 → 整体冷却 10 分钟
+```
+
+行为约定:
+
+- **未配置密钥 → 503**(不是放行)
+- 密钥用 `X-Api-Key` 头传递,**绝不放进 URL**;比较用 `timingSafeEqual`
+- 失败响应固定文案,不泄漏任何 token 片段;服务端日志只记 token 前 8 位
+- 前端第一次使用时输入密钥,存 `localStorage`,之后自动携带
+
+### 🔑 DSH 登录地址工具(`tools/dsh-url/`)
+
+一键取到本机 DSH Web UI 的登录地址。实现要点(实测结论见 `docs/ts-rewrite-plan.md` §12):
+
+- token 是 `dsh web` 的**进程级令牌**,不落盘,只在 pm2 启动日志里出现一次
+- 取法:读 `<DSH_LOG_DIR>/<DSH_LOG_PREFIX>*` 里最后一条 `token=...` → 带 `Host: <DSH_PUBLIC_HOST>`
+  请求 `/?token=…`,**必须返回 303 才算有效**(直连 `127.0.0.1` 会 401,这是最容易踩的坑)
+- 响应里的 `valid: false` 表示 dsh 重启过、token 已失效,界面会红字提示 `pm2 restart dsh`
+- ⚠️ 该 URL 里的 token 等同于 **root 级入口**,页面默认打码显示,并提示勿分享
+
+> 密钥强度提醒:如果密钥是短数字串(例如 6 位 PIN),即使有"独立限流 + 全局失败预算",
+> 面对大量 IP 的分布式猜测仍然偏弱。建议 `openssl rand -hex 32` 生成随机密钥,
+> 换密钥只需改 `.env` 并 `systemctl restart aggregation-page`。
 
 ## 部署
 

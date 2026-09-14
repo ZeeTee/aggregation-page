@@ -32,3 +32,21 @@ export interface HealthPayload {
   uptimeSeconds: number;
   tools: number;
 }
+
+/**
+ * GET /api/dsh/login-url 的响应(前后端共用同一份类型)。
+ * 该接口需要 X-Api-Key。
+ */
+export interface DshLoginUrl {
+  /** https://<publicHost>/?token=... */
+  url: string;
+  host: string;
+  port: number;
+  /** token 前 8 位,供人工核对 */
+  tokenPreview: string;
+  /** 303 校验是否通过;false 表示 token 已随 dsh 进程重启失效 */
+  valid: boolean;
+  checkedAt: string;
+  /** 命中的日志文件与行号,便于排障 */
+  source: string;
+}

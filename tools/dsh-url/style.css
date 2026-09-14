@@ -1,0 +1,55 @@
+/* DSH 登录地址工具专用样式 */
+
+.url-box {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.7;
+  word-break: break-all;
+}
+
+.url-box code {
+  color: var(--ink);
+}
+
+.status {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  min-height: 1.6em;
+}
+
+.warn {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff4e5;
+  border: 1px solid #f0dcae;
+  color: #b26a00;
+  font-size: 13.5px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .warn {
+    background: #2a2113;
+    border-color: #3d3220;
+    color: #f0c674;
+  }
+}
+
+.count {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#keyRow input {
+  flex: 1 1 200px;
+}
+
+#keyRow button,
+.row > button {
+  flex: 0 0 auto;
+}
