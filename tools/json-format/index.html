@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JSON 格式化 · 在线工具箱</title>
+<link rel="stylesheet" href="/assets/base.css">
+<style>
+  textarea{width:100%;min-height:230px;padding:12px 14px;border-radius:12px;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink);
+    font:13.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    resize:vertical;outline:none}
+  textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .row{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+  button{padding:9px 15px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{color:#fff;opacity:.92}
+  h2{font-size:16px;margin:0 0 10px}
+  .status{margin:0 0 10px;font-size:13.5px;min-height:1.6em}
+  .ok{color:#137333}.err{color:#c5221f}
+  .stat{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;
+    font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:.92}
+</style>
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" href="/">← 在线工具箱</a>
+  <p class="tagline">🧾 JSON 格式化</p>
+</div></header>
+<main class="wrap">
+  <section class="card">
+    <h2>输入</h2>
+    <textarea id="input" placeholder='粘贴 JSON,例如 {"hello": "world"}' spellcheck="false"></textarea>
+    <div class="row">
+      <button class="primary" id="pretty">格式化(缩进 2)</button>
+      <button id="minify">压缩成一行</button>
+      <button id="escape">转义为字符串</button>
+      <button id="unescape">去转义</button>
+      <button id="clear">清空</button>
+      <button id="copy">复制结果</button>
+    </div>
+    <p class="status" id="status"></p>
+    <h2>结果</h2>
+    <textarea id="output" spellcheck="false" placeholder="结果显示在这里"></textarea>
+    <p class="stat" id="stat"></p>
+  </section>
+</main>
+<div class="toast" id="toast">已复制</div>
+<script>
+const $ = id => document.getElementById(id);
+const input = $('input'), output = $('output'), status = $('status'), stat = $('stat');
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1200);
+}
+function setStatus(msg, cls){ status.textContent = msg || ''; status.className = 'status ' + (cls || ''); }
+function stats(text){
+  stat.textContent = text ? `${text.length} 字符 · ${text.split('\n').length} 行` : '';
+}
+// JSON.parse 的报错里带 "at position N",把它换算成行列并展示上下文
+function locate(text, err){
+  const m = /position (\d+)/.exec(err.message);
+  if (!m) return '';
+  const pos = Number(m[1]);
+  const before = text.slice(0, pos);
+  const line = before.split('\n').length;
+  const col = pos - before.lastIndexOf('\n');
+  const snippet = text.slice(Math.max(0, pos - 20), pos + 20).replace(/\n/g, '⏎');
+  return `\n第 ${line} 行 第 ${col} 列附近:…${snippet}…`;
+}
+$('pretty').addEventListener('click', () => {
+  try {
+    const obj = JSON.parse(input.value);
+    output.value = JSON.stringify(obj, null, 2);
+    setStatus('✓ JSON 有效', 'ok');
+    stats(output.value);
+  } catch (e) {
+    setStatus('✗ 解析失败:' + e.message + locate(input.value, e), 'err');
+    stats('');
+  }
+});
+$('minify').addEventListener('click', () => {
+  try {
+    output.value = JSON.stringify(JSON.parse(input.value));
+    setStatus('✓ 已压缩', 'ok'); stats(output.value);
+  } catch (e) { setStatus('✗ 解析失败:' + e.message + locate(input.value, e), 'err'); }
+});
+$('escape').addEventListener('click', () => {
+  output.value = JSON.stringify(input.value);
+  setStatus('✓ 已转义', 'ok'); stats(output.value);
+});
+$('unescape').addEventListener('click', () => {
+  try {
+    const v = JSON.parse(input.value);
+    output.value = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
+    setStatus('✓ 已去转义', 'ok'); stats(output.value);
+  } catch (e) { setStatus('✗ 解析失败:' + e.message, 'err'); }
+});
+$('clear').addEventListener('click', () => {
+  input.value = output.value = ''; setStatus(''); stats('');
+});
+$('copy').addEventListener('click', () => {
+  if (!output.value) { toast('没有可复制的内容'); return; }
+  navigator.clipboard?.writeText(output.value).then(
+    () => toast('已复制'), () => toast('复制失败'));
+});
+</script>
+</body>
+</html>

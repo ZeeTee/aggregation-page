@@ -1,0 +1,8 @@
+{
+  "name": "JSON 格式化",
+  "description": "JSON 格式化、压缩与语法校验,出错时给出位置提示。",
+  "tags": ["开发", "文本"],
+  "icon": "🧾",
+  "status": "ready",
+  "order": 20
+}

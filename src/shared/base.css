@@ -1,0 +1,240 @@
+/* 站点共享设计系统：门户页与各工具页都引入本文件。 */
+
+:root {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --ink: #151a22;
+  --muted: #6b7280;
+  --line: #e6eaf0;
+  --accent: #1a73e8;
+  --accent-soft: #eaf1fe;
+  --ok: #137333;
+  --err: #c5221f;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1319;
+    --card: #171c25;
+    --ink: #e8ecf3;
+    --muted: #98a2b3;
+    --line: #252c38;
+    --accent: #6ea8fe;
+    --accent-soft: #1b2534;
+    --ok: #7ee2a8;
+    --err: #ff8a80;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.7 -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 页头 ---------- */
+
+.site-head {
+  background: linear-gradient(135deg, #1a73e8, #0e2e7a);
+  color: #fff;
+  padding: 24px 20px 22px;
+}
+
+.site-head .inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.brand {
+  color: #fff;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.brand:hover {
+  text-decoration: none;
+  opacity: 0.92;
+}
+
+.tagline {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13.5px;
+  margin: 6px 0 0;
+}
+
+/* ---------- 布局 ---------- */
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 18px 16px 40px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  margin: 0 0 14px;
+}
+
+.card h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 8px 0 0;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+kbd {
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 12px;
+  color: var(--accent);
+  font-family: inherit;
+}
+
+/* ---------- 表单控件 ---------- */
+
+button {
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.primary:hover {
+  color: #fff;
+  opacity: 0.92;
+}
+
+input[type='text'],
+input[type='number'],
+input[type='search'],
+input[type='datetime-local'],
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  font-family: inherit;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.out {
+  margin: 14px 0 0;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.9;
+}
+
+.out b {
+  color: var(--accent);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.err {
+  color: var(--err);
+}
+
+/* ---------- 提示条 ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 99;
+}
+
+.toast.show {
+  opacity: 0.92;
+}
+
+/* ---------- 页脚 ---------- */
+
+.site-foot {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: center;
+}

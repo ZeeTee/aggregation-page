@@ -1,0 +1,8 @@
+{
+  "name": "新工具名称",
+  "description": "一句话说明这个工具做什么。",
+  "tags": ["标签一", "标签二"],
+  "icon": "🧰",
+  "status": "ready",
+  "order": 100
+}

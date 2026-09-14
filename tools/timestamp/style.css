@@ -1,0 +1,16 @@
+/* 时间戳工具专用样式（通用部分在 src/shared/base.css） */
+
+.row > input {
+  flex: 1 1 220px;
+}
+
+.row > button {
+  flex: 0 0 auto;
+}
+
+.now {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+}

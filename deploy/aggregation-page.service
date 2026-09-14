@@ -1,0 +1,17 @@
+[Unit]
+Description=aggregation-page 在线工具箱(Cloudflare 隧道的本地源站)
+Documentation=file:///root/dshworkspace/aggregation-page/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/dshworkspace/aggregation-page
+ExecStart=/usr/bin/python3 /root/dshworkspace/aggregation-page/serve.py
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

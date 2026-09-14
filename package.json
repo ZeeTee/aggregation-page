@@ -1,0 +1,25 @@
+{
+  "name": "aggregation-page",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "自托管的小工具集合站(门户 + 各工具页面 + 可选 Node 后端)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "esbuild": "^0.28.2",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
+  }
+}

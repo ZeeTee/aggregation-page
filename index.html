@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>在线工具箱</title>
+<meta name="description" content="一个自托管的小工具集合页">
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" id="brand" href="/">在线工具箱</a>
+  <p class="tagline" id="tagline"></p>
+</div></header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <input id="q" class="search" type="search" placeholder="搜索工具（按 / 聚焦）…" autocomplete="off">
+    <span class="count" id="count"></span>
+  </div>
+  <div class="tags" id="tags"></div>
+  <div class="grid" id="grid"></div>
+  <p class="empty" id="empty" hidden>没有匹配的工具。</p>
+</main>
+
+<footer class="site-foot" id="foot"></footer>
+
+<script type="module" src="/src/hub/main.ts"></script>
+</body>
+</html>

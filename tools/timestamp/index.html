@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>时间戳转换 · 在线工具箱</title>
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" href="/">← 在线工具箱</a>
+  <p class="tagline">🕒 时间戳转换</p>
+</div></header>
+
+<main class="wrap">
+  <section class="card">
+    <h2>当前时间</h2>
+    <div class="now" id="now">—</div>
+    <p class="hint" id="nowParts">—</p>
+    <div class="row" id="copyRow">
+      <button class="primary" data-copy="sec">复制秒级时间戳</button>
+      <button data-copy="ms">复制毫秒时间戳</button>
+      <button data-copy="iso">复制 ISO 时间</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>时间戳 → 日期时间</h2>
+    <div class="row">
+      <input id="tsIn" type="text" placeholder="例如 1789391713 或 1789391713000" autocomplete="off">
+      <button class="primary" id="tsGo">转换</button>
+    </div>
+    <p class="hint">自动识别秒 / 毫秒（10 位视为秒，13 位视为毫秒）</p>
+    <div class="out" id="tsOut" hidden></div>
+  </section>
+
+  <section class="card">
+    <h2>日期时间 → 时间戳</h2>
+    <div class="row">
+      <input id="dtIn" type="datetime-local" step="1">
+      <button class="primary" id="dtGo">转换</button>
+    </div>
+    <p class="hint">按浏览器所在时区解析</p>
+    <div class="out" id="dtOut" hidden></div>
+  </section>
+</main>
+
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

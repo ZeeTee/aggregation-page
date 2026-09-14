@@ -1,0 +1,8 @@
+{
+  "name": "时间戳转换",
+  "description": "Unix 时间戳与日期时间互转,显示本地时间、UTC 与相对时间。",
+  "tags": ["时间", "开发"],
+  "icon": "🕒",
+  "status": "ready",
+  "order": 10
+}
