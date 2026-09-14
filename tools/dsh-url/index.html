@@ -19,15 +19,12 @@
       等同于机器的高权限入口 —— 请勿分享、勿截图外发。token 每次重启 dsh 都会变。
     </p>
 
-    <div class="row" id="keyRow" hidden>
-      <input id="keyInput" type="password" placeholder="访问密钥" autocomplete="off">
-      <button id="keySave" class="primary">保存密钥并获取</button>
-    </div>
-
     <div class="row" style="margin-top:12px">
+      <input id="keyInput" type="password" placeholder="访问密钥(每次获取都需输入)"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
       <button id="fetch" class="primary">显示 DSH 登录地址</button>
-      <button id="changeKey" hidden>更换密钥</button>
     </div>
+    <p class="hint">密钥不会被保存:不写本机存储,请求结束即清空输入框。</p>
 
     <p class="status" id="status"></p>
   </section>

@@ -445,7 +445,7 @@ npm run smoke -- --public         # 线上冒烟(https://www.zeetng.cloud)
 | 方案 | 做法 | 强度 | 代价 |
 | --- | --- | --- | --- |
 | A. Cloudflare Access 保护该路径 | 给 `www.zeetng.cloud/api/dsh/*` 单独建一个 Access 应用(或整个站点加 Access) | 强 | 需在 Cloudflare 后台操作(现有 API token 无 Access:Edit 权限,实测 `/access/apps` 读不到应用、`/access/organizations` 返回 403) |
-| **B. 共享密钥 ← 已选定** | `.env` 放 `TOOLBOX_API_KEY`,接口要求 `X-Api-Key`;密钥首次输入后存 localStorage | 中 | 密钥可能经浏览器历史/Referer 泄漏(用 `no-referrer` 缓解);换设备需重输 |
+| **B. 共享密钥 ← 已选定** | `.env` 放 `TOOLBOX_API_KEY`,接口要求 `X-Api-Key`;密钥**每次获取都重新输入,不做保存** | 中 | 密钥可能经浏览器历史/Referer 泄漏(用 `no-referrer` 缓解);换设备需重输 |
 | C. 仅限本机 | 接口只在来源 IP 为 `127.0.0.1` 时返回 | 强(不暴露) | 公网页面上按钮不可用 |
 
 **✅ 决策(已确认):采用方案 B(共享密钥)**——不动 Cloudflare 后台,由代码层守住接口。
@@ -460,7 +460,7 @@ npm run smoke -- --public         # 线上冒烟(https://www.zeetng.cloud)
 | 比较方式 | 常量时间比较(`crypto.timingSafeEqual`),长度不等直接失败 |
 | 失败响应 | 401,响应体固定文案,**不含**任何 token 片段 |
 | 限流 | 该接口单独更严格:10 次/分钟/IP(失败也计数),超限 429 |
-| 前端 | 首次点击弹出输入框 → 存 `localStorage['toolbox.apiKey']` → 之后自动携带;提供「更换密钥」入口 |
+| 前端 | 每次点击都需在输入框填密钥 → 请求结束即清空;不写任何本地存储(后按要求由"保存"改为"不保存") |
 | 其它 | 响应 `Cache-Control: no-store`;页面 `Referrer-Policy: no-referrer`;服务端日志只记 token 前 8 位 |
 
 无论选哪种,以下都必须做:
@@ -735,7 +735,7 @@ sudo systemctl start aggregation-page-python
 1. `server/security.ts` 增加 `requireApiKey()`(常量时间比较;密钥未配置 → 503)
 2. `server/routes/dsh.ts`:`GET /api/dsh/login-url` —— 取 pm2 日志最后一条 token → 带
    `Host: dsh.zeetng.cloud` 做 303 校验 → 返回地址;5 秒校验结果缓存;日志只打前 8 位
-3. `tools/dsh-url/`:按钮 + 密钥输入(localStorage)+ 复制/打开 + 失效提示
+3. `tools/dsh-url/`:按钮 + 密钥输入(每次重输、不保存)+ 复制/打开 + 失效提示
 4. 测试:密钥校验分支、日志解析、303 校验(打桩)、前端渲染
 
 ---
@@ -752,7 +752,7 @@ sudo systemctl start aggregation-page-python
 | `server/env.ts` | 新增 `AUTH_RATE_LIMIT` / `AUTH_FAILURE_BUDGET` / `DSH_LOG_DIR` / `DSH_LOG_PREFIX` / `DSH_PUBLIC_HOST` / `DSH_PORT` |
 | `src/shared/api.ts` | 前端 `callApi<T>()`,把失败信封转成带 code 的 `ApiError` |
 | `src/shared/types.ts` | `DshLoginUrl` 前后端共用同一份类型 |
-| `tools/dsh-url/` | 工具页:密钥输入(localStorage)→ 获取 → 打码显示 / 复制 / 打开 / 失效提示 |
+| `tools/dsh-url/` | 工具页:密钥输入(每次重输,不保存)→ 获取 → 打码显示 / 复制 / 打开 / 失效提示 |
 | `.env` / `.env.example` | 密钥与 DSH 相关变量(`.env` 600 权限、不入库) |
 
 ### 安全设计(按选定方案 B)
@@ -796,3 +796,15 @@ systemctl restart aggregation-page
 
 门户渲染测试原本把"2 个工具"写死,新增工具后立刻失败。已改为**从 `tools/` 目录动态推导
 期望值**(卡片数、标签集合、搜索结果数),这样以后加工具不用改测试 —— 测试不该复述实现细节。
+
+### P5 后续调整:密钥改为"每次输入、不保存"
+
+按要求把前端密钥策略从"输入一次存 localStorage"改为**每次获取都重新输入、不做任何保存**:
+
+| 变更 | 说明 |
+| --- | --- |
+| 移除持久化 | 删除 `localStorage['toolbox.apiKey']` 的读写;不碰 sessionStorage / cookie |
+| 输入框常显 | 不再有"首次输入/更换密钥"两种状态;输入框始终可见 |
+| 用后即清 | 请求结束(无论成功或失败)立即清空输入框,下次必须重新输入 |
+| 服务端不变 | `TOOLBOX_API_KEY=521016` 保持不变,校验逻辑、限流、失败预算均未改动 |
+| 新增测试 | `tests/dsh-url.test.ts` 7 例:localStorage/sessionStorage/cookie 全空、空输入不发请求、请求头携带密钥、用后清空、二次点击必须重输 |

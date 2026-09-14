@@ -1,8 +1,9 @@
 /**
  * DSH 登录地址工具。
  *
- * 流程:点按钮 → 带 X-Api-Key 调 /api/dsh/login-url → 展示(默认打码)地址。
- * 密钥存在 localStorage,只在请求头里发送,绝不放进 URL。
+ * 密钥策略(按要求):**每次获取都要重新输入,不做任何保存** ——
+ * 不写 localStorage / sessionStorage / cookie,请求结束立即清空输入框。
+ * 密钥只从输入框读取,并且只通过 `X-Api-Key` 请求头发送,绝不放进 URL。
  */
 
 import '../../src/shared/base.css';
@@ -14,20 +15,16 @@ import { must } from '../../src/shared/dom';
 import { toast } from '../../src/shared/toast';
 import type { DshLoginUrl } from '../../src/shared/types';
 
-const STORAGE_KEY = 'toolbox.apiKey';
-
-const keyRow = must('#keyRow');
 const keyInput = must<HTMLInputElement>('#keyInput');
 const fetchButton = must<HTMLButtonElement>('#fetch');
-const changeKeyButton = must<HTMLButtonElement>('#changeKey');
 const status = must('#status');
 const resultCard = must('#resultCard');
 const urlText = must('#urlText');
 const revealButton = must<HTMLButtonElement>('#reveal');
 const warn = must('#warn');
 const validBadge = must('#validBadge');
+const meta = must('#meta');
 
-let apiKey = localStorage.getItem(STORAGE_KEY) ?? '';
 let current: DshLoginUrl | null = null;
 let revealed = false;
 
@@ -47,7 +44,7 @@ function render(): void {
   urlText.textContent = revealed ? current.url : maskUrl(current.url);
   revealButton.textContent = revealed ? '隐藏' : '显示完整地址';
   validBadge.textContent = current.valid ? '校验通过' : '已失效';
-  must('#meta').textContent =
+  meta.textContent =
     `token 前缀 ${current.tokenPreview}… · 校验于 ${new Date(current.checkedAt).toLocaleTimeString()} · ` +
     `来源 ${current.source}`;
   warn.hidden = current.valid;
@@ -57,74 +54,50 @@ function render(): void {
 }
 
 async function load(): Promise<void> {
+  // 只从输入框取值:不读任何本地存储
+  const apiKey = keyInput.value.trim();
   if (apiKey === '') {
-    keyRow.hidden = false;
-    changeKeyButton.hidden = true;
+    setStatus('请输入访问密钥', 'err');
     keyInput.focus();
-    setStatus('请先输入访问密钥', '');
     return;
   }
+
   fetchButton.disabled = true;
+  keyInput.disabled = true;
   setStatus('正在获取…', '');
   try {
     current = await callApi<DshLoginUrl>('/api/dsh/login-url', { apiKey });
     revealed = false;
     resultCard.hidden = false;
-    changeKeyButton.hidden = false;
     render();
     setStatus(current.valid ? '获取成功' : '地址已失效', current.valid ? 'ok' : 'err');
   } catch (error) {
     resultCard.hidden = true;
+    current = null;
     if (error instanceof ApiError) {
-      if (error.code === 'unauthorized') {
-        // 密钥错误:清掉本地记录,重新要求输入
-        apiKey = '';
-        localStorage.removeItem(STORAGE_KEY);
-        keyRow.hidden = false;
-        keyInput.value = '';
-        keyInput.focus();
-        setStatus('密钥不正确,请重新输入', 'err');
-      } else if (error.code === 'api_key_not_configured') {
+      if (error.code === 'unauthorized') setStatus('密钥不正确', 'err');
+      else if (error.code === 'api_key_not_configured') {
         setStatus('服务端未配置密钥(.env 里的 TOOLBOX_API_KEY),该接口暂不可用', 'err');
       } else if (error.code === 'auth_locked' || error.code === 'rate_limited') {
         setStatus(`${error.message}(稍后再试)`, 'err');
       } else {
-        setStatus(`${error.message}`, 'err');
+        setStatus(error.message, 'err');
       }
     } else {
       setStatus(`请求失败:${(error as Error).message}`, 'err');
     }
   } finally {
+    // 用后即清:输入框里不残留密钥,下次获取必须重新输入
+    keyInput.value = '';
+    keyInput.disabled = false;
     fetchButton.disabled = false;
+    keyInput.focus();
   }
-}
-
-function saveKey(): void {
-  const value = keyInput.value.trim();
-  if (value === '') {
-    setStatus('密钥不能为空', 'err');
-    return;
-  }
-  apiKey = value;
-  localStorage.setItem(STORAGE_KEY, value);
-  keyRow.hidden = true;
-  keyInput.value = '';
-  void load();
 }
 
 fetchButton.addEventListener('click', () => void load());
-must('#keySave').addEventListener('click', saveKey);
 keyInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') saveKey();
-});
-
-changeKeyButton.addEventListener('click', () => {
-  apiKey = '';
-  localStorage.removeItem(STORAGE_KEY);
-  resultCard.hidden = true;
-  keyRow.hidden = false;
-  keyInput.focus();
-  setStatus('请输入新的访问密钥', '');
+  if (event.key === 'Enter') void load();
 });
 
 revealButton.addEventListener('click', () => {
@@ -142,9 +115,5 @@ must('#open').addEventListener('click', () => {
   window.open(current.url, '_blank', 'noopener,noreferrer');
 });
 
-// 已存过密钥就直接拉一次,省一次点击
-if (apiKey !== '') void load();
-else {
-  keyRow.hidden = false;
-  setStatus('首次使用:请输入访问密钥(保存在本机浏览器)', '');
-}
+setStatus('每次获取都需输入访问密钥(不会被保存)', '');
+keyInput.focus();

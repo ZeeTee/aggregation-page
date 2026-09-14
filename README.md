@@ -159,7 +159,8 @@ AUTH_FAILURE_BUDGET=10   # 全局失败预算:10 分钟内累计失败 10 次 �
 - **未配置密钥 → 503**(不是放行)
 - 密钥用 `X-Api-Key` 头传递,**绝不放进 URL**;比较用 `timingSafeEqual`
 - 失败响应固定文案,不泄漏任何 token 片段;服务端日志只记 token 前 8 位
-- 前端第一次使用时输入密钥,存 `localStorage`,之后自动携带
+- 前端**每次获取都要重新输入密钥,不做任何保存**(不写 localStorage / sessionStorage / cookie),
+  请求结束即清空输入框;密钥只通过 `X-Api-Key` 头发送
 
 ### 🔑 DSH 登录地址工具(`tools/dsh-url/`)
 
