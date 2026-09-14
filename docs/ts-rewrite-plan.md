@@ -588,3 +588,85 @@ Python 服务是**长驻进程,不会热加载代码**:修改 `registry.py` 的�
 1. `server/` 全套:静态托管(路径穿越防护 / ETag / 分级缓存)、`/api` 分发、限流、安全响应头
 2. `scripts/dev.ts`(同时起 Vite 与 Node)、`scripts/build-server.ts`(esbuild 打包)、`scripts/smoke.ts`
 3. 在 8081 端口并跑对比,验收后把 systemd 的 `ExecStart` 切到 Node
+
+---
+
+## 15. P2 实施记录(Node 服务层)
+
+### 交付内容
+
+| 文件 | 职责 |
+| --- | --- |
+| `server/index.ts` | 入口:读环境 → 校验 `dist/` → 组装 → 监听 → 信号处理 |
+| `server/app.ts` | HTTP 组装(与入口分离,便于单测直接起临时端口) |
+| `server/static.ts` | 静态托管:路径穿越防护、目录补 index、分级缓存、ETag/304、流式响应 |
+| `server/api.ts` | `/api` 分发:统一信封、64KB 体积上限、10s 超时、错误映射 |
+| `server/security.ts` | 安全响应头、固定窗口限流、真实 IP(`CF-Connecting-IP`) |
+| `server/log.ts` | JSON lines 日志(含每请求 id/耗时/状态/IP) |
+| `server/env.ts` | `.env` 解析(不引入 dotenv)+ 配置校验回退 |
+| `server/routes/*` | 显式路由注册表:`/api/health`、`/api/tools`、`/api/echo` |
+| `scripts/dev.ts` | 双进程开发:Vite(5173)+ Node API(8090),`/api` 走代理 |
+| `scripts/build-server.ts` | esbuild 打包 → `dist-server/index.js`(零运行时依赖) |
+| `scripts/smoke.ts` | 冒烟:14 项状态码断言,支持 `--port` / `--public` |
+| `.env.example` | HOST/PORT/LOG_LEVEL/API_RATE_LIMIT/TOOLBOX_API_KEY |
+
+### 验收实测(全部通过)
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run typecheck` | 通过 |
+| `npm test` | **42/42**(新增服务端 21 个:路径解析、响应头策略、限流、环境变量、HTTP 集成) |
+| `npm run build` | 131ms(前端 86ms + 服务端 7ms);`dist-server/index.js` 17.8KB |
+| `npm run smoke --port 8081` | **14/14** |
+| 安全头 | nosniff / no-referrer / DENY / Permissions-Policy / CSP 全部就位 |
+| 缓存分级 | `/assets/*` → `immutable`;`/tools.json`、`/` → `no-cache` |
+| ETag | 命中 `If-None-Match` 返回 **304** |
+| 限流 | 连续 70 次 `/api/health` → 52 次 200、18 次 **429**(带 `Retry-After`);静态资源不受影响 |
+| 体积上限 | 70KB 请求体 → **413** |
+| 目录穿越 | `/../package.json` → 404(URL 归一化);`/%2e%2e%2fpackage.json` → **403** |
+| 优雅退出 | `SIGTERM` → 日志记录 → 退出码 0 |
+| 开发模式 | Vite 5173 页面 200;API 8090 直连与经代理均返回 `{"ok":true,...}` |
+| 线上回归 | `https://www.zeetng.cloud` 仍由 Python 版正常服务,未受影响 |
+
+### 过程中的两个真实问题
+
+**1. Node 类型剥离不支持构造器参数属性(P0 预警过,确实踩到)**
+
+`server/api.ts` 用了 `constructor(readonly status: number, ...)`,开发模式下
+`node --watch server/index.ts` 直接报 `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`,
+API 进程起不来(Vite 代理报 ECONNREFUSED)。`RateLimiter` 有同样问题。
+
+- 修法:改为显式字段声明 + 赋值
+- 规范:`server/`、`scripts/` 及所有以 `.ts` 直接运行的代码,**禁用**参数属性、`enum`、`namespace`
+- 自查命令:
+  ```bash
+  grep -rnE "constructor\(|^\s*(private|public|protected|readonly)\s+\w+\s*[:,)]" server scripts src --include="*.ts"
+  ```
+- 生产构建不受影响(esbuild 会正常编译),所以**只有开发模式会暴露** —— 这也是必须实测 `npm run dev` 的原因
+
+**2. 单测抓到 `%00` 绕过 NUL 检查**
+
+`resolveWithin` 原本在**解码前**检查 `\0`,而 `%00` 解码后才产生 NUL 字符,检查被绕过
+(实际危害有限:Node 的 fs 会因路径含 NUL 抛错 → 落到 404,但检查本身不完整)。
+已改为解码后再查一次,并补了 `/a%00b → 403` 的冒烟用例。
+
+### 偏差
+
+| 偏差 | 原因 |
+| --- | --- |
+| 拆分出 `server/app.ts` | 入口若直接 listen 则无法在测试里起临时端口;拆分后集成测试可离线跑 |
+| 多加一个 `/api/echo` 示例接口 | 让 API 骨架的分支(405/415/400/413)能被测试与冒烟覆盖 |
+| CSP 暂留 `'unsafe-inline'` | vanilla 工具仍有内联脚本;全部迁移为 TS 后可收紧 |
+| 未做 Range 请求 | 当前资源都是小文件,收益为零;需要时再补 |
+
+### 下一步(P3:切换上线)
+
+1. 在 8081 端口并跑:Node 服务与 Python 版逐项对比(页面、`tools.json`、接口)
+2. `deploy/aggregation-page.service` 已改为 `ExecStart=/usr/bin/node dist-server/index.js`;
+   切换 = `cp` 单元文件 + `daemon-reload` + `restart` + `enable`
+3. 切换后跑 `npm run smoke -- --public`,并确认 Cloudflare 侧缓存与安全头表现
+4. 保留 Python 单元(`aggregation-page-python`)一周,作为回滚路径
+
+### 待办(P5 需要的准备)
+
+- `TOOLBOX_API_KEY` 已进 `.env.example`,但**校验中间件尚未实现**(P5 实现 DSH 地址工具时一起加)

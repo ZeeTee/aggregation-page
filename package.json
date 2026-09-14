@@ -3,16 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "自托管的小工具集合站(门户 + 各工具页面 + 可选 Node 后端)",
+  "description": "自托管的小工具集合站(门户 + 各工具页面 + Node 后端)",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/dev.ts",
+    "dev:web": "vite",
+    "dev:api": "node --watch server/index.ts",
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "vite build",
+    "build:server": "node scripts/build-server.ts",
+    "start": "node dist-server/index.js",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "node scripts/smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^26.5.1",

@@ -7,9 +7,14 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/root/dshworkspace/aggregation-page
-ExecStart=/usr/bin/python3 /root/dshworkspace/aggregation-page/serve.py
+Environment=NODE_ENV=production
+# .env 可选:里面可覆盖 HOST/PORT/LOG_LEVEL/API_RATE_LIMIT/TOOLBOX_API_KEY
+EnvironmentFile=-/root/dshworkspace/aggregation-page/.env
+ExecStart=/usr/bin/node /root/dshworkspace/aggregation-page/dist-server/index.js
 Restart=always
 RestartSec=3
+# 这是个小服务,给个内存上限避免异常时拖累整机
+MemoryMax=384M
 StandardOutput=journal
 StandardError=journal
 
