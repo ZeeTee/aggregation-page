@@ -1,74 +1,159 @@
-/** 门户页样式（首页专用；工具页只引入 base.css）。 */
+/* 门户页样式:顶部英雄区(搜索)+ 标签过滤 + 工具卡片网格。
+ * 通用token 与基础组件在 src/shared/base.css。
+ */
 
-.toolbar {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin: 0 0 14px;
+/* ---------- 英雄区(替代原先的标题行) ---------- */
+
+.hero {
+  position: relative;
+  padding: 54px 20px 26px;
 }
 
-.search {
-  flex: 1 1 240px;
-  min-width: 200px;
+.hero-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.hero-sub {
+  margin: 0 0 24px;
+  font-size: clamp(19px, 3.2vw, 29px);
+  line-height: 1.45;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  /* 无 background-clip 支持时的回退色 */
+  color: var(--ink-strong);
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero-sub {
+    background: linear-gradient(110deg, #ffffff 8%, #cfe4ff 45%, #bda8ff 88%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.hero-search {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hero-search .search {
+  flex: 1 1 320px;
+  padding: 14px 18px;
+  font-size: 15.5px;
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.66);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
 }
 
 .count {
   color: var(--muted);
   font-size: 13px;
+  white-space: nowrap;
 }
+
+/* ---------- 标签过滤 ---------- */
 
 .tags {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin: 0 0 16px;
+  margin: 0 0 18px;
 }
 
 .tags button {
-  padding: 4px 11px;
+  padding: 5px 13px;
   border-radius: 999px;
   font-size: 13px;
+  background: var(--glass);
+  color: var(--muted);
+}
+
+.tags button:hover {
+  color: var(--ink-strong);
+  transform: none;
 }
 
 .tags button.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  border-color: transparent;
+  background: var(--gradient);
+  color: #071018;
+  font-weight: 600;
 }
+
+/* ---------- 卡片网格 ---------- */
 
 .grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
 }
 
 .tool-card {
-  display: block;
-  background: var(--card);
-  border: 1px solid var(--line);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 16px;
   border-radius: var(--radius);
+  background: var(--glass);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  padding: 16px 17px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   color: var(--ink);
-  transition: transform 0.12s ease, border-color 0.12s ease;
+  overflow: hidden;
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* 悬停时的渐变描边(用 mask 抠出 1px 边框) */
+.tool-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .tool-card:hover {
-  text-decoration: none;
-  transform: translateY(-2px);
-  border-color: var(--accent);
+  transform: translateY(-4px);
+  border-color: transparent;
+  box-shadow: 0 26px 54px -26px rgba(99, 102, 241, 0.9), var(--shadow);
+}
+
+.tool-card:hover::before {
+  opacity: 0.9;
 }
 
 .tool-card .icon {
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.tool-card:hover .icon {
+  transform: scale(1.14) rotate(-5deg);
 }
 
 .tool-card .name {
-  margin: 9px 0 5px;
+  margin: 10px 0 5px;
   font-size: 16px;
   font-weight: 650;
+  color: var(--ink-strong);
+  letter-spacing: 0.2px;
 }
 
 .tool-card .desc {
@@ -81,27 +166,42 @@
 .tool-card .tags-line {
   margin: 10px 0 0;
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(147, 160, 184, 0.85);
 }
 
 .wip {
   display: inline-block;
   margin-left: 6px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  background: #fff4e5;
-  color: #b26a00;
+  background: rgba(251, 191, 36, 0.16);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  color: var(--warn-ink);
   font-size: 11px;
+  font-weight: 500;
   vertical-align: middle;
 }
 
 .api-badge {
   display: inline-block;
   margin-left: 6px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  background: var(--accent-soft);
+  background: rgba(108, 184, 255, 0.14);
+  border: 1px solid rgba(108, 184, 255, 0.3);
   color: var(--accent);
   font-size: 11px;
+  font-weight: 500;
   vertical-align: middle;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

@@ -6,25 +6,12 @@
 <title>JSON 格式化 · 在线工具箱</title>
 <link rel="stylesheet" href="/assets/base.css">
 <style>
-  textarea{width:100%;min-height:230px;padding:12px 14px;border-radius:12px;
-    border:1px solid var(--line);background:var(--bg);color:var(--ink);
-    font:13.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    resize:vertical;outline:none}
-  textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .row{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
-  button{padding:9px 15px;border-radius:10px;border:1px solid var(--line);
-    background:var(--card);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit}
-  button:hover{border-color:var(--accent);color:var(--accent)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.primary:hover{color:#fff;opacity:.92}
-  h2{font-size:16px;margin:0 0 10px}
+  /* 只保留本工具特有的部分:通用组件(卡片/按钮/输入框/提示条)已由 /assets/base.css 提供 */
+  textarea{min-height:230px;font:13.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    resize:vertical}
+  .row{margin:12px 0}
   .status{margin:0 0 10px;font-size:13.5px;min-height:1.6em}
-  .ok{color:#137333}.err{color:#c5221f}
   .stat{color:var(--muted);font-size:12.5px;margin:8px 0 0}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
-    background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;
-    font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
-  .toast.show{opacity:.92}
 </style>
 </head>
 <body>

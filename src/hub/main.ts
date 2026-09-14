@@ -38,8 +38,8 @@ function card(tool: ToolMeta): HTMLAnchorElement {
 
 function main(): void {
   document.title = site.title;
-  must<HTMLAnchorElement>('#brand').textContent = site.title;
-  must('#tagline').textContent = site.subtitle;
+  // 页面顶部不再单独放站点名(避免与浏览器标签重复),只显示一句副标题
+  must('#tagline').textContent = site.subtitle || site.description;
   must('#foot').textContent = site.footer;
 
   const grid = must('#grid');
@@ -48,8 +48,10 @@ function main(): void {
   const search = must<HTMLInputElement>('#q');
   const tagBox = must('#tags');
 
-  const cards = tools.map((tool) => {
+  const cards = tools.map((tool, index) => {
     const node = card(tool);
+    // 入场动画的错位延迟(--i 由 CSS 的 animation-delay 使用)
+    node.style.setProperty('--i', String(index));
     grid.append(node);
     return node;
   });

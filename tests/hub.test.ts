@@ -105,8 +105,16 @@ describe('门户页', () => {
   });
 
   it('站点标题与文案来自 config.json（构建期注入）', () => {
+    // 首页不再单独放站点名那一行(避免与浏览器标签重复),标题只体现在 document.title
     expect(document.title).toBe('在线工具箱');
-    expect(document.querySelector('#brand')?.textContent).toBe('在线工具箱');
+    expect(document.querySelector('#brand')).toBeNull();
     expect(document.querySelector('#tagline')?.textContent).toContain('小工具');
+  });
+
+  it('首页结构:英雄区 + 搜索框 + 卡片网格,且卡片带入场动画序号', () => {
+    expect(document.querySelector('.hero')).not.toBeNull();
+    expect(document.querySelector('.hero-search #q')).not.toBeNull();
+    const first = document.querySelector<HTMLElement>('.tool-card');
+    expect(first?.style.getPropertyValue('--i')).toBe('0');
   });
 });

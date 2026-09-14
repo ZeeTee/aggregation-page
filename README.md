@@ -210,6 +210,22 @@ npm run smoke -- --public
   (CSP 目前保留 `'unsafe-inline'`,因为 vanilla 工具还有内联脚本;全部迁移为 TS 后应移除)
 - 路径穿越双重防护:URL 归一化 + `resolveWithin` 前缀校验(含 `%00` 解码后再查一次)
 
+## 视觉设计
+
+暗色玻璃拟态 + 极光背景,全部是 CSS(无动画库、无 UI 框架):
+
+| 元素 | 做法 |
+| --- | --- |
+| 背景 | `body::before` 三团径向渐变做缓慢漂移的极光(`@keyframes aurora`);`body::after` 叠加网格并向下淡出 |
+| 卡片 | 半透明 + `backdrop-filter` 玻璃;悬停上浮、图标微旋、用 mask 抠出 1px 渐变描边 |
+| 入场 | 卡片逐个淡入上移,`--i` 由 JS 写入,`animation-delay: calc(var(--i) * 45ms)` |
+| 主按钮 | 青→紫渐变 + 投影;次要按钮玻璃底 + 悬停描边 |
+| 首页顶部 | **不再单独显示站点名**(避免与浏览器标签重复);改为英雄区:渐变副标题 + 内嵌搜索框 |
+| 无障碍 | `prefers-reduced-motion: reduce` 时全部动效关闭 |
+
+设计 token 集中在 `src/shared/base.css` 的 `:root`(配色、圆角、玻璃与模糊强度),
+换主题只改这一处。当前为**暗色单主题**(`color-scheme: dark`)。
+
 ## 迁移状态(与 Python 版的关系)
 
 | 部分 | Python 版 | TypeScript 版 |
