@@ -1,4 +1,15 @@
 <!DOCTYPE html>
+<!--
+  🔑 DSH 登录地址工具 —— 页面结构
+
+  设计要点(与 main.ts 的契约):
+    · 这里只放"骨架",所有交互逻辑都在 main.ts;样式来自 /src/shared/base.css + ./style.css
+    · 下面这些 id 是 JS 依赖的,**改名要同步改 main.ts**(main.ts 用 must() 取,缺了会直接报错):
+        #keyInput #fetch #status #resultCard #urlText #reveal #copy #open #warn #validBadge #meta
+    · 密钥输入框**常显**(不是首次才出现):因为每次获取都要重新输入,不做保存
+    · 结果卡片默认 hidden,由 JS 在拿到结果后显示
+    · 自动填充类属性全部关掉,避免浏览器把密钥存进密码管理器
+-->
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -6,12 +17,14 @@
 <title>DSH 登录地址 · 在线工具箱</title>
 </head>
 <body>
+<!-- 工具页统一顶栏:左侧返回门户,右侧是工具名 -->
 <header class="site-head"><div class="inner">
   <a class="brand" href="/">← 在线工具箱</a>
   <p class="tagline">🔑 DSH 登录地址</p>
 </div></header>
 
 <main class="wrap">
+  <!-- ① 输入区:密钥 + 主按钮 -->
   <section class="card">
     <h2>获取当前登录地址</h2>
     <p class="hint">
@@ -20,15 +33,19 @@
     </p>
 
     <div class="row" style="margin-top:12px">
+      <!-- type=password 防肩窥;autocomplete=off 防浏览器代填与保存提示 -->
       <input id="keyInput" type="password" placeholder="访问密钥(每次获取都需输入)"
              autocomplete="off" autocapitalize="off" spellcheck="false">
       <button id="fetch" class="primary">显示 DSH 登录地址</button>
     </div>
     <p class="hint">密钥不会被保存:不写本机存储,请求结束即清空输入框。</p>
 
+    <!-- 状态文案:开始/成功/失败都写在这里(main.ts 的 setStatus) -->
     <p class="status" id="status"></p>
   </section>
 
+  <!-- ② 结果区:默认隐藏,拿到结果后由 JS 显示 -->
+  <!--    地址默认打码(token=••••),点「显示完整地址」才展开 -->
   <section class="card" id="resultCard" hidden>
     <h2>登录地址 <span class="count" id="validBadge"></span></h2>
     <div class="url-box"><code id="urlText"></code></div>
@@ -37,7 +54,9 @@
       <button id="copy" class="primary">复制</button>
       <button id="open">直接打开</button>
     </div>
+    <!-- token 前缀 / 校验时间 / 来源日志行号(排障用) -->
     <p class="hint" id="meta"></p>
+    <!-- token 失效(进程重启过)时的红字提示 -->
     <p class="warn" id="warn" hidden></p>
   </section>
 </main>

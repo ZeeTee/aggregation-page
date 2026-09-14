@@ -1,8 +1,19 @@
 # aggregation-page TypeScript 重构 · 架构与实施方案
 
-> 状态:**设计稿(待评审)**,尚未开始实施。
-> 目标读者:实施者本人 / 未来的自己。
-> 前置阅读:`README.md`(当前 Python 版的用法与部署方式)。
+> **文档性质**:§1–§11 是**设计与方案**;§12–§17 是按阶段追加的**实施记录与决策变更**。
+> 想知道"现在怎么用、有哪些工具、怎么部署",请看 `README.md`;本文件回答"为什么这么设计、当时怎么取舍"。
+>
+> **当前状态(P5 完成,已全量上线)**
+>
+> | 项 | 现状 |
+> | --- | --- |
+> | 线上服务 | `https://www.zeetng.cloud` 由 **Node 单进程**(静态 + `/api/*`)承接 |
+> | Python 实现 | 已停用(`aggregation-page-python.service` 未 enable),保留作一周回滚 |
+> | 工具 | 3 个:`dsh-url`(需密钥)、`timestamp`(TS)、`json-format`(vanilla) |
+> | 质量 | 68 个单测 / `tsc --noEmit` / 冒烟本地 16 项 + 线上 16 项,全绿 |
+> | 依赖 | 6 个 devDependencies,**生产零运行时依赖**(`dist-server/index.js` 单文件) |
+>
+> 目标读者:实施者本人 / 未来的自己。前置阅读:`README.md`。
 
 ---
 
@@ -170,7 +181,7 @@ aggregation-page/
 > 服务端代码**统一用 `const` 对象 + union 类型**代替 `enum`。
 > 生产环境不依赖该特性(服务端由 esbuild 打包成 JS)。
 
-### 5.2 devDependencies(预计 5 个)
+### 5.2 devDependencies(6 个;见 §14 偏差表)
 
 | 包 | 用途 |
 | --- | --- |
@@ -373,14 +384,16 @@ npm run smoke -- --public         # 线上冒烟(https://www.zeetng.cloud)
 
 ## 9. 分阶段实施计划
 
-| 阶段 | 内容 | 产出 | 验收标准 | 预估 |
+| 阶段 | 内容 | 产出 | 验收标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| **P0 环境验证** ✅ | ~~临时目录试装 devDeps;确认 Node 类型剥离行为;确认构建耗时/内存~~ | 见 §14 实施记录 | 装依赖 11s;构建 0.1s;类型剥离免参数可用 | 0.5 h |
-| **P1 前端骨架** ✅ | ~~工程初始化、tsconfig、Vite 配置、工具扫描 + 插件、门户页、示例工具迁移~~ | `src/`、`tests/`、`dist/` | typecheck 通过;21 个测试全绿;门户功能等价 | 4–6 h |
-| **P2 服务端** | `server/*` 全部模块、健康检查、示例路由、限流与安全头 | `npm start` 后可访问站点与 `/api/health` | 目录穿越/超限/限流用例返回 403/413/429;`/api` 未注册路径 404 | 4–6 h |
-| **P3 上线切换** | 构建脚本、systemd 单元、冒烟脚本;在 8080 上完成切换 | 线上 `https://www.zeetng.cloud` 由 Node 服务承接 | 所有工具页 200;HTML no-cache;静态资源命中缓存;重启后自动恢复 | 2 h |
-| **P4 沉淀** | 共享组件(Toast/复制/DOM 助手)、Vitest 单测(元数据校验 + 路由)、README 更新 | 测试与文档 | `npm test` 全绿;新增工具全过程可在 3 步内完成 | 3–4 h |
-| **P5 首个真实后端工具** | 按实际需求实现第一个 `api: true` 的工具 | 端到端可用的后端工具 | 前端 ↔ 后端类型共享生效;错误信封前端可读提示 | 视需求 |
+| **P0 环境验证** | ~~临时目录试装 devDeps;确认 Node 类型剥离行为;确认构建耗时/内存~~ | §14 | 装依赖 11s;构建 0.1s;类型剥离免参数可用 | ✅ |
+| **P1 前端骨架** | ~~工程初始化、tsconfig、Vite 配置、工具扫描 + 插件、门户页、示例工具迁移~~ | `src/`、`tests/`、`dist/` | typecheck 通过;门户功能与旧版等价 | ✅ |
+| **P2 服务端** | ~~`server/*` 全部模块、健康检查、示例路由、限流与安全头~~ | §15 | 目录穿越/超限/限流返回 403/413/429;未注册路径 404 | ✅ |
+| **P3 上线切换** | ~~构建脚本、systemd 单元、冒烟脚本;在 8080 上完成切换~~ | §16 | 工具页全 200;HTML no-cache;静态资源长缓存;重启自恢复 | ✅ |
+| **P4 沉淀** | ~~共享组件(Toast/复制/DOM 助手)、Vitest 单测、README 更新~~ | 共享层与测试 | `npm test` 全绿;新增工具 3 步内完成 | ✅(随 P1/P2 一并落地) |
+| **P5 首个后端工具** | ~~实现第一个 `api: true` 的工具~~ | §17 | 前后端类型共享;错误信封前端可读提示 | ✅(`dsh-url`) |
+
+> 实际过程与计划的偏差、踩到的坑,都记在 §14–§17 各阶段的"实施记录"里。
 
 **P1 与 P2 可并行**(共享类型文件先冻结)。
 
@@ -390,29 +403,37 @@ npm run smoke -- --public         # 线上冒烟(https://www.zeetng.cloud)
 
 | 层级 | 工具 | 覆盖内容 |
 | --- | --- | --- |
-| 单元 | Vitest | `src/build/tools.ts` 的扫描与校验(各种非法 `tool.json`)、API 路由 handler(注入假 ctx)、限流器 |
-| 类型 | `tsc --noEmit` | 前后端两个 tsconfig 全量检查 |
-| 冒烟 | `scripts/smoke.ts` | 部署后逐个 URL 断言状态码(`/`、每个 `/tools/<slug>/`、`/tools.json`、`/api/health`),支持 `--local` / `--public` |
-| 手动 | 浏览器 | 移动端排版(公众号/手机访问为主)、搜索与过滤、每个工具的交互 |
+| 单元 | Vitest | 工具扫描与校验(`tests/tools.test.ts`)、服务端纯函数与 HTTP 集成(`tests/server.test.ts`)、鉴权与 DSH 接口(`tests/dsh.test.ts`) |
+| 渲染 | Vitest + happy-dom | 门户卡片/搜索/标签(`tests/hub.test.ts`)、DSH 工具的密钥策略与交互(`tests/dsh-url.test.ts`) |
+| 类型 | `tsc --noEmit` | 单一 tsconfig 全量检查(前端 + 服务端 + 脚本 + 测试,取舍见 §14 偏差表) |
+| 冒烟 | `scripts/smoke.ts` | 部署后逐个 URL 断言状态码(首页、每个工具页、`/tools.json`、各接口、鉴权 401、目录穿越),支持 `--port` / `--public` |
+| 手动 | 浏览器 | 移动端排版、搜索与过滤、各工具交互、暗色视觉观感 |
+
+当前规模:**68 个用例 / 5 个测试文件 / 冒烟 16 项**。
 
 ---
 
 ## 11. 风险与对策
 
-| 风险 | 等级 | 对策 |
-| --- | --- | --- |
-| 内存不足导致构建 OOM(可用约 900 MB) | 中 | 限制堆 `--max-old-space-size=512`;不在机器上常驻 dev server;构建时避开日报/其它任务高峰(06:00–07:10) |
-| Node 类型剥离需显式开关或不支持某些语法 | 低 | P0 验证;服务端避免 `enum`/`namespace`;生产走 esbuild 打包 |
-| 引入 npm 依赖带来供应链风险 | 中 | 仅 5 个 devDeps;`package-lock.json` 入库;`npm audit`;生产零依赖 |
-| 公网 API 被滥用 | 中 | §7.3 全套:限流、体积限制、SSRF 白名单、无 shell、可选 Cloudflare Access |
-| **高价值凭据被公网页面公开**(DSH 登录 token = root 级入口) | **高** | §12.3:整站/该路径加 Cloudflare Access,或共享密钥,或仅限本机;禁止把 token 放进自身页面 URL |
-| 中文目录名导致 URL/构建异常 | 低 | 工具目录坚持 ASCII slug(中文名放 `name`) |
-| 切换期间站点不可用 | 低 | 先在同机另一端口(如 8081)起 Node 验证,再切 8080;systemd 有 `Restart=always`;保留 Python 版回滚 |
-| 与现有 Python 版行为差异(如自动重建)被误当 bug | 低 | 在 README 明确:新架构用 Vite HMR(开发)+ 构建发布(生产),不再有"请求触发重建" |
+| 风险 | 等级 | 对策 | 现状 |
+| --- | --- | --- | --- |
+| 内存不足导致构建 OOM(可用约 900 MB) | 中 | 限制堆 `--max-old-space-size=512`;不在机器上常驻 dev server;避开日报任务高峰(06:00–07:10) | 未发生:构建 ~0.1s,服务常驻 16MB |
+| Node 类型剥离不支持部分 TS 语法 | 低 | P0 验证;服务端避免 `enum`/`namespace`/**构造器参数属性**;生产走 esbuild 打包 | **已发生并修正**(§15):开发模式起不来,已改写法并写进规范 |
+| 引入 npm 依赖带来供应链风险 | 中 | 仅 6 个 devDeps(含测试用 happy-dom);`package-lock.json` 入库;`npm audit`;生产零依赖 | 生产 `dist-server/index.js` 只 import `node:*` |
+| 公网 API 被滥用 | 中 | §7.3 全套:限流、体积限制、SSRF 白名单、无 shell | 已实现(普通 60/min、鉴权接口 5/min) |
+| **高价值凭据被公网页面公开**(DSH 登录 token = root 级入口) | **高** | §12.3:整站/该路径加 Cloudflare Access,或共享密钥,或仅限本机;禁止把 token 放进自身页面 URL | 采用**共享密钥 + 独立限流 + 全局失败预算**(§17);密钥为 6 位数字,强度偏弱,已在文档标注更换方式 |
+| 中文目录名导致 URL/构建异常 | 低 | 工具目录坚持 ASCII slug(中文名放 `name`),构建期强校验 | 已实现(校验不通过直接让构建失败) |
+| 切换期间站点不可用 | 低 | 先在同机另一端口(如 8081)起 Node 验证,再切 8080;`Restart=always`;保留 Python 版回滚 | 已按此执行,实际中断约 1–2 秒 |
+| 与旧版行为差异(如"请求触发重建")被误当 bug | 低 | 在 README 明确:新架构用 Vite HMR(开发)+ 构建发布(生产) | 已在 README 说明 |
 
 ---
 
-## 12. 首个后端工具设计:DSH 登录地址(**含凭据,需先定安全方案**)
+## 12. 首个后端工具设计:DSH 登录地址
+
+> **实现说明**:本节是动手前的**原始设计**。实现与它的差异只有一处 ——
+> **前端密钥策略**:原设计是"输入一次存 localStorage",实际按用户要求改为
+> **"每次获取都重新输入、不做任何保存"**,详见 §17 末尾的调整记录。
+> 其余(取 token 的方式、303 校验、错误分支)与设计一致;实际交付见 §17。
 
 ### 12.1 需求
 
@@ -519,15 +540,19 @@ type DshLoginUrl = {
 
 ---
 
-## 13. 待确认事项(实施前需拍板)
+## 13. 待确认事项
 
-1. ~~**DSH 地址工具的安全方案**~~ → **已定:方案 B(共享密钥)**,详见 §12.3。
-2. ~~**实现时机**~~ → **已定:随 TypeScript 版一起做**(作为首个 `api: true` 的后端工具,对应 P5)。
-3. **首批后端工具清单**:除 DSH 地址外还有哪些工具要后端能力,决定其余 `/api/*` 路由与出网白名单。
-4. **是否给写操作加 Cloudflare Access 保护**(只靠限流是否足够)。
-5. **Python 版保留策略**:建议保留至新架构稳定运行一周后再删。
-6. **仓库策略**:本工程目前尚未纳入 git;建议先 `git init` 并推私有仓库,再做 P1,便于分阶段回滚。
-7. **Node 版本策略**:跟随机器现有 v22;是否加 `.nvmrc` / `engines` 约束(建议加 `engines: { node: ">=22" }`)。
+> 实施前提出的问题,现已全部有结论;留在这里备查。
+
+| # | 事项 | 结论 |
+| --- | --- | --- |
+| 1 | DSH 地址工具的安全方案 | ✅ **方案 B(共享密钥)**;实现时按用户要求把"保存密钥"改为"每次输入、不保存"(§17) |
+| 2 | 实现时机 | ✅ 随 TypeScript 版一起做,作为首个 `api: true` 工具(P5,§17) |
+| 3 | 其余需要后端能力的工具 | ⏳ 待定:目前只有 `dsh-url` 一个后端工具,新增时再定路由与出网白名单 |
+| 4 | 是否给写操作加 Cloudflare Access | ⏳ 暂不需要:当前唯一的受限接口用共享密钥 + 独立限流 + 全局失败预算保护;如将来出现**有副作用**的接口(写入/执行类),再评估 Access 或二次确认 |
+| 5 | Python 版保留策略 | ✅ 已保留为 `aggregation-page-python.service`(disabled),建议稳定运行一周后清理(删除 unit + `build.py`/`serve.py`/`aggregation_page/`/`public/`) |
+| 6 | 仓库策略 | ✅ 已 `git init` 并推送私有仓库 `ZeeTee/aggregation-page`,`package-lock.json` 入库 |
+| 7 | Node 版本策略 | ✅ `package.json` 已加 `engines: { node: ">=22" }`(未加 `.nvmrc`:本机用系统 Node) |
 
 ---
 
@@ -541,7 +566,7 @@ type DshLoginUrl = {
 | 依赖版本 | TypeScript **7.0.2**、Vite **8.3.0**、esbuild 0.28.2、Vitest 5.0.0、@types/node 26.5.1、happy-dom 20.14.5 |
 | Node 类型剥离 | ✅ 免参数可用(`node script.ts` 直接跑,Node 22.23) |
 | `vite build` | **0.1 秒**(14 modules),内存无压力 |
-| `vitest run` | 2.2 秒(21 个用例) |
+| `vitest run` | 2.2 秒(当时 21 个用例;现为 68 个) |
 | 结论 | 内存/网络/磁盘均无瓶颈,原计划的"避开 06:00–07:10 日报高峰"非必需,但保留为好 |
 
 ### P1 前端骨架(已完成)
@@ -570,7 +595,7 @@ type DshLoginUrl = {
 | 偏差 | 原因 |
 | --- | --- |
 | devDeps 由 5 个增至 **6 个**(多 happy-dom) | 门户卡片是运行时渲染,必须有 DOM 测试兜底,否则选择器写错会静默渲染空白页 |
-| 暂用**单个 tsconfig**(`types: ["vite/client", "node"]`) | P1 需要同时编译 `vite.config.ts` / `src/build/**`(Node) 与前端;待 P2 服务端成型后再拆 `tsconfig.server.json` |
+| 用**单个 tsconfig**(`types: ["vite/client", "node"]`) | P1 需要同时编译 `vite.config.ts` / `src/build/**`(Node) 与前端;P2 之后评估:项目规模小,拆两个 tsconfig 收益有限,**决定维持单配置**,靠"共享层不得 import node 模块"的约定约束(见 §4 注释) |
 | 配置图内改用**显式 `.ts` 扩展名** + `allowImportingTsExtensions` | Vite 8 的 native config loader 要求;不修会有告警,未来会成为默认行为 |
 | 新增 **Python 版迁移守卫**(`registry.py` 跳过含 `main.ts` 的工具) | 原计划未考虑:两个构建管线共用 `tools/`,Python 版无法编译 TS,会把坏页面拷进 `public/` |
 | 为 vanilla 工具额外输出 `/assets/base.css` | TS 构建的样式是带哈希的资源,vanilla 工具通过稳定路径引用共享样式(全部迁移后可删) |
@@ -607,7 +632,7 @@ Python 服务是**长驻进程,不会热加载代码**:修改 `registry.py` 的�
 | `server/routes/*` | 显式路由注册表:`/api/health`、`/api/tools`、`/api/echo` |
 | `scripts/dev.ts` | 双进程开发:Vite(5173)+ Node API(8090),`/api` 走代理 |
 | `scripts/build-server.ts` | esbuild 打包 → `dist-server/index.js`(零运行时依赖) |
-| `scripts/smoke.ts` | 冒烟:14 项状态码断言,支持 `--port` / `--public` |
+| `scripts/smoke.ts` | 冒烟:状态码断言(当时 14 项,现 16 项),支持 `--port` / `--public` |
 | `.env.example` | HOST/PORT/LOG_LEVEL/API_RATE_LIMIT/TOOLBOX_API_KEY |
 
 ### 验收实测(全部通过)
@@ -753,6 +778,7 @@ sudo systemctl start aggregation-page-python
 | `src/shared/api.ts` | 前端 `callApi<T>()`,把失败信封转成带 code 的 `ApiError` |
 | `src/shared/types.ts` | `DshLoginUrl` 前后端共用同一份类型 |
 | `tools/dsh-url/` | 工具页:密钥输入(每次重输,不保存)→ 获取 → 打码显示 / 复制 / 打开 / 失效提示 |
+| `tools/dsh-url/README.md` | 工具自带文档:工作原理、密钥策略、配置项、**排障清单**、本地自测 |
 | `.env` / `.env.example` | 密钥与 DSH 相关变量(`.env` 600 权限、不入库) |
 
 ### 安全设计(按选定方案 B)

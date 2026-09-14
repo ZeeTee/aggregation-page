@@ -1,0 +1,25 @@
+[Unit]
+Description=aggregation-page 在线工具箱(回滚用:Python 版源站)
+Documentation=file:///root/dshworkspace/aggregation-page/README.md
+# P3 切换前的 Python 实现,保留作回滚路径(不要 enable,避免开机自启)。
+#
+# 回滚:
+#   sudo systemctl stop aggregation-page
+#   sudo systemctl start aggregation-page-python
+# 注意:两者都监听 127.0.0.1:8080,不能同时运行。
+#
+# 稳定运行一周后可删除本文件与 Python 实现(build.py / serve.py / aggregation_page/ / public/)。
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/dshworkspace/aggregation-page
+ExecStart=/usr/bin/python3 /root/dshworkspace/aggregation-page/serve.py
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

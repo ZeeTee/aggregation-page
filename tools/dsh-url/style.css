@@ -1,5 +1,10 @@
-/* DSH 登录地址工具专用样式(通用组件在 src/shared/base.css) */
+/* 🔑 DSH 登录地址工具 —— 仅本工具特有的样式
+ *
+ * 通用组件(卡片、按钮、输入框、.warn/.ok/.err/.toast)都在 src/shared/base.css,
+ * 这里**不要**重复定义,否则改主题时会两处不一致。
+ */
 
+/* 地址展示框:等宽字体 + 允许长 token 折行 */
 .url-box {
   padding: 13px 15px;
   border-radius: var(--radius-sm);
@@ -8,25 +13,28 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13.5px;
   line-height: 1.75;
-  word-break: break-all;
+  word-break: break-all; /* token 很长,必须能断行,否则手机上会横向溢出 */
 }
 
 .url-box code {
   color: var(--ink);
 }
 
+/* 状态文案占位:固定最小高度,避免出现/消失时页面跳动 */
 .status {
   margin: 12px 0 0;
   font-size: 13.5px;
   min-height: 1.6em;
 }
 
+/* 「校验通过 / 已失效」角标跟在 h2 后面 */
 .count {
   color: var(--muted);
   font-size: 13px;
   font-weight: 400;
 }
 
+/* 输入框与按钮在 .row 里的伸缩:输入框吃掉剩余宽度,按钮保持内容宽度 */
 #keyInput {
   flex: 1 1 220px;
 }

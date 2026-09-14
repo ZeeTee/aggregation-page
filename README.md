@@ -7,8 +7,8 @@
 - 构建产物是纯静态文件(`dist/`),可选配一个 Node 后端提供 `/api/*`
 - 通过 **Cloudflare 隧道**发布到 `https://www.zeetng.cloud`,无需开放公网端口、无需 ICP 备案
 
-> 当前状态:正在从 Python 实现迁移到 **TypeScript + Vite**(见 `docs/ts-rewrite-plan.md`)。
-> Python 版保留作为回滚,详见文末「迁移状态」。
+> 当前状态:**TypeScript 版已全量上线**。线上由 Node 单进程(静态 + `/api/*`)提供服务;
+> Python 实现已停用,仅保留作回滚(见文末「迁移状态」)。设计与决策过程见 `docs/ts-rewrite-plan.md`。
 
 ## 技术栈
 
@@ -17,7 +17,7 @@
 | 语言 | TypeScript(strict,`noUncheckedIndexedAccess`) |
 | 前端 | 原生 DOM(无 UI 框架) |
 | 构建 | Vite 8(多页应用 MPA) |
-| 服务端 | 计划中:Node 单文件服务(静态 + `/api/*`) |
+| 服务端 | Node 22 单进程:`node:http` 手写静态托管 + `/api`(esbuild 打成单文件,零运行时依赖) |
 | 测试 | Vitest + happy-dom |
 | 包管理 | npm(registry 已指向 npmmirror) |
 
@@ -41,13 +41,15 @@ aggregation-page/
 │   └── routes/                   #   接口注册表(显式列出,便于审查)
 ├── scripts/                      # dev(双进程)/ build-server(esbuild)/ smoke
 ├── tools/                        # 一个目录一个工具
+│   ├── dsh-url/                  #   TS 工具(需后端):🔑 DSH 登录地址,含自己的 README
 │   ├── timestamp/                #   TS 工具:index.html + main.ts + style.css
-│   └── json-format/              #   vanilla 工具(渐进迁移中,原样拷贝)
-├── tests/                        # Vitest:工具校验 / 门户渲染 / 服务端
+│   └── json-format/              #   vanilla 工具(未迁移,整目录原样拷贝)
+├── tests/                        # Vitest:5 个文件 / 68 个用例
 ├── dist/  dist-server/           # 构建产物(gitignore)
-├── public/                       # Python 版的产物(gitignore,迁移期保留)
-├── deploy/                       # systemd 单元
-└── docs/ts-rewrite-plan.md       # 架构与实施方案
+├── public/                       # Python 版旧产物(gitignore,回滚期保留)
+├── deploy/                       # systemd 单元(Node 版 + Python 回滚版)
+├── docs/ts-rewrite-plan.md       # 架构方案与分阶段实施记录
+└── templates/tool/               # 新工具模板(复制即用)
 ```
 
 ## 常用命令
@@ -59,13 +61,13 @@ npm run build          # 构建前端(dist/)+ 服务端(dist-server/)
 npm start              # 启动服务端(需先 build;默认 127.0.0.1:8080)
 npm run preview        # 只看前端产物 http://127.0.0.1:8081
 npm run typecheck      # tsc 全量类型检查
-npm test               # Vitest(42 个用例)
-npm run smoke          # 冒烟:逐个 URL 断言状态码(--public 打线上)
+npm test               # Vitest(68 个用例 / 5 个文件)
+npm run smoke          # 冒烟:16 项状态码断言(--port 8080 打本机,--public 打线上)
 ```
 
-实测:构建 **0.13 秒**(前端 0.09s + 服务端 0.01s),42 个测试约 **3 秒**,14 项冒烟约 0.2 秒。
+实测:构建 **约 0.12 秒**(前端 0.1s + 服务端 0.01s),68 个测试约 **5 秒**,冒烟 16 项约 0.3 秒。
 
-开发期 API 端口是 **8090**,避开仍在运行的 Python 版(8080);正式上线时 Node 监听 8080。
+端口约定:线上服务监听 **8080**;开发模式把 API 起在 **8090**,这样 `npm run dev` 不会打扰正在运行的服务。
 
 ## 新增一个工具
 
@@ -228,21 +230,31 @@ npm run smoke -- --public
 
 ## 迁移状态(与 Python 版的关系)
 
-| 部分 | Python 版 | TypeScript 版 |
+| 部分 | Python 版(已停用) | TypeScript 版(线上) |
 | --- | --- | --- |
 | 门户页 | `build.py` + `aggregation_page/render.py` | ✅ `src/hub` + Vite |
 | 工具构建 | 整目录拷贝 | ✅ TS 工具编译 + vanilla 拷贝 |
-| 工具元数据 | `registry.py` | ✅ `src/build/tools.ts`(带校验) |
-| 静态服务 | `serve.py`(systemd 当前在用) | ✅ `server/`(已在 8081 验证,待 P3 切换) |
-| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo` |
+| 工具元数据 | `registry.py` | ✅ `src/build/tools.ts`(构建期强校验) |
+| 静态服务 | `serve.py` | ✅ `server/`(Node,已在 8080 运行) |
+| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url` |
+| systemd | `aggregation-page-python.service`(disabled) | ✅ `aggregation-page.service`(enabled) |
 
-迁移期约定:
+**回滚方式**(Python 单元保留一周):
 
-- **带 `main.ts` 的工具由 TS 版构建**,Python 版会自动跳过(见 `registry.py` 的守卫),
-  避免产出无法执行的页面
-- 线上仍由 Python 版服务 `public/`;TS 版构建到 `dist/`,在 8081/8090 验证后再切到 8080(P3)
-- 全部切换稳定运行一周后,可删除 Python 实现(`build.py`、`serve.py`、`aggregation_page/`)
+```bash
+sudo systemctl stop aggregation-page
+sudo systemctl start aggregation-page-python
+```
+
+稳定运行一周后可清理:删除 `aggregation-page-python.service`,以及 Python 实现
+(`build.py`、`serve.py`、`aggregation_page/`、`public/`)。届时 `registry.py` 里那条
+"跳过带 `main.ts` 的工具"的迁移守卫也可以一并删除。
 
 ## 文档
 
-- `docs/ts-rewrite-plan.md` —— 架构、接口设计、分阶段实施计划、风险与决策记录
+| 文件 | 内容 |
+| --- | --- |
+| `README.md`(本文) | 当前怎么用:命令、新增工具、接口与安全约定、部署、视觉设计 |
+| `docs/ts-rewrite-plan.md` | **为什么这么设计**:架构方案(§1–§11)+ 分阶段实施记录与踩坑(§12–§17) |
+| `tools/dsh-url/README.md` | 单个工具的说明:工作原理、排障清单、涉及文件 |
+| `.env.example` | 所有服务端环境变量及含义 |
