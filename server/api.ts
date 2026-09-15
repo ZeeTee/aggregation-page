@@ -48,12 +48,15 @@ export interface Route {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** 若提供,会作为 Retry-After 响应头返回(用于限流/冷却类错误) */
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, retryAfterSeconds?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -216,7 +219,10 @@ export function createApiRouter(
     } catch (error) {
       if (res.writableEnded) return true;
       if (error instanceof ApiError) {
-        fail(res, error.status, error.code, error.message);
+        fail(res, error.status, error.code, error.message,
+          error.retryAfterSeconds !== undefined
+            ? { 'Retry-After': String(error.retryAfterSeconds) }
+            : {});
       } else {
         // 内部错误:记录堆栈,但只回固定文案
         log.error('api handler failed', {

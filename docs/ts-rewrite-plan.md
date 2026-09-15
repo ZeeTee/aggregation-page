@@ -9,8 +9,8 @@
 > | --- | --- |
 > | 线上服务 | `https://www.zeetng.cloud` 由 **Node 单进程**(静态 + `/api/*`)承接 |
 > | Python 实现 | 已停用(`aggregation-page-python.service` 未 enable),保留作一周回滚 |
-> | 工具 | 3 个:`dsh-url`(需密钥)、`timestamp`(TS)、`json-format`(vanilla) |
-> | 质量 | 68 个单测 / `tsc --noEmit` / 冒烟本地 16 项 + 线上 16 项,全绿 |
+> | 工具 | 4 个:`dsh-url`(🔑 需密钥)、`dsh-restart`(🔑⚠️ 有副作用)、`timestamp`(TS)、`json-format`(vanilla) |
+> | 质量 | **83 个单测**(7 个文件)/ `tsc --noEmit` / 冒烟本地 16 项 + 线上 16 项,全绿 |
 > | 依赖 | 6 个 devDependencies,**生产零运行时依赖**(`dist-server/index.js` 单文件) |
 >
 > 目标读者:实施者本人 / 未来的自己。前置阅读:`README.md`。
@@ -409,7 +409,7 @@ npm run smoke -- --public         # 线上冒烟(https://www.zeetng.cloud)
 | 冒烟 | `scripts/smoke.ts` | 部署后逐个 URL 断言状态码(首页、每个工具页、`/tools.json`、各接口、鉴权 401、目录穿越),支持 `--port` / `--public` |
 | 手动 | 浏览器 | 移动端排版、搜索与过滤、各工具交互、暗色视觉观感 |
 
-当前规模:**68 个用例 / 5 个测试文件 / 冒烟 16 项**。
+当前规模:**83 个用例 / 7 个测试文件 / 冒烟 16 项**。
 
 ---
 
@@ -549,7 +549,7 @@ type DshLoginUrl = {
 | 1 | DSH 地址工具的安全方案 | ✅ **方案 B(共享密钥)**;实现时按用户要求把"保存密钥"改为"每次输入、不保存"(§17) |
 | 2 | 实现时机 | ✅ 随 TypeScript 版一起做,作为首个 `api: true` 工具(P5,§17) |
 | 3 | 其余需要后端能力的工具 | ⏳ 待定:目前只有 `dsh-url` 一个后端工具,新增时再定路由与出网白名单 |
-| 4 | 是否给写操作加 Cloudflare Access | ⏳ 暂不需要:当前唯一的受限接口用共享密钥 + 独立限流 + 全局失败预算保护;如将来出现**有副作用**的接口(写入/执行类),再评估 Access 或二次确认 |
+| 4 | 是否给写操作加 Cloudflare Access | ⏳ 暂不加:已有副作用接口(`/api/dsh/restart`,§18),用**密钥 + 二次确认 + 60 秒冷却 + 全局失败预算**保护;若密钥换成强随机值则风险可控,再出现写/执行类接口时重新评估 |
 | 5 | Python 版保留策略 | ✅ 已保留为 `aggregation-page-python.service`(disabled),建议稳定运行一周后清理(删除 unit + `build.py`/`serve.py`/`aggregation_page/`/`public/`) |
 | 6 | 仓库策略 | ✅ 已 `git init` 并推送私有仓库 `ZeeTee/aggregation-page`,`package-lock.json` 入库 |
 | 7 | Node 版本策略 | ✅ `package.json` 已加 `engines: { node: ">=22" }`(未加 `.nvmrc`:本机用系统 Node) |
@@ -566,7 +566,7 @@ type DshLoginUrl = {
 | 依赖版本 | TypeScript **7.0.2**、Vite **8.3.0**、esbuild 0.28.2、Vitest 5.0.0、@types/node 26.5.1、happy-dom 20.14.5 |
 | Node 类型剥离 | ✅ 免参数可用(`node script.ts` 直接跑,Node 22.23) |
 | `vite build` | **0.1 秒**(14 modules),内存无压力 |
-| `vitest run` | 2.2 秒(当时 21 个用例;现为 68 个) |
+| `vitest run` | 2.2 秒(当时 21 个用例;现为 83 个) |
 | 结论 | 内存/网络/磁盘均无瓶颈,原计划的"避开 06:00–07:10 日报高峰"非必需,但保留为好 |
 
 ### P1 前端骨架(已完成)
@@ -834,3 +834,62 @@ systemctl restart aggregation-page
 | 用后即清 | 请求结束(无论成功或失败)立即清空输入框,下次必须重新输入 |
 | 服务端不变 | `TOOLBOX_API_KEY=521016` 保持不变,校验逻辑、限流、失败预算均未改动 |
 | 新增测试 | `tests/dsh-url.test.ts` 7 例:localStorage/sessionStorage/cookie 全空、空输入不发请求、请求头携带密钥、用后清空、二次点击必须重输 |
+
+---
+
+## 18. 追加实施记录:🔄 重启 DSH(首个**有副作用**的接口)
+
+### 需求
+
+工具箱里加一个工具,一键重启本机 dsh;重启后自动取回**新的**登录地址
+(因为 token 是进程级的,重启必然换地址 —— 两件事天然要串在一起)。
+
+### 设计:三道护栏 + 一条硬约束
+
+| 护栏 | 实现 |
+| --- | --- |
+| 密钥 | 路由 `auth: true`,复用 §17 的鉴权(独立限流 5/min + 全局失败预算 + 常量时间比较);前端每次都要重新输入、不保存 |
+| 二次确认 | 主按钮只做"读取当前状态"(顺便验证密钥),必须再点「确认重启」才下发命令;取消会丢弃内存里暂存的密钥 |
+| 冷却 | `DSH_RESTART_COOLDOWN`(默认 60 秒):冷却期内第二次请求返回 `429 restart_cooldown` + `Retry-After`;失败**不**进入冷却 |
+| 硬约束:命令是常量 | `execFile(process.execPath, [PM2_BIN, 'restart', DSH_APP_NAME])`,**不经 shell**;调用方的 query/body 无法影响参数(有专门测试验证) |
+
+流程编排放在前端:`GET login-url`(记下重启前 token 前缀)→ `POST restart` →
+轮询 `GET login-url` 直到 **token 前缀变化且校验通过** → 展示新地址(默认打码)。
+本工具所在服务是独立 systemd 单元,**dsh 重启期间页面不会掉线**,所以能从头看到尾。
+
+### 交付内容
+
+| 文件 | 职责 |
+| --- | --- |
+| `server/routes/dsh-restart.ts` | 固定命令执行 + 冷却状态机 + 错误码;执行器与时钟可注入(测试用) |
+| `server/api.ts` | `ApiError` 增加可选的 `retryAfterSeconds` → 路由层据此回 `Retry-After` 头 |
+| `server/env.ts` | 新增 `PM2_BIN` / `PM2_HOME` / `DSH_APP_NAME` / `DSH_RESTART_COOLDOWN` |
+| `src/shared/types.ts` | `DshRestartResult`(前后端共用) |
+| `tools/dsh-restart/` | 工具页 + 自带 README(流程、护栏、排障) |
+| `tests/dsh-restart.test.ts` | 后端 9 例 |
+| `tests/dsh-restart-ui.test.ts` | 前端 6 例 |
+
+### 验收实测
+
+| 项 | 结果 |
+| --- | --- |
+| 测试 | **83/83**(新增 15 例);`typecheck` 通过 |
+| 无密钥 / 密钥错 | 401,且**执行器一次都没被调用**(测试断言) |
+| 命令白名单 | 在 query/body 里塞 `cmd=rm -rf /`、`pm2Bin=/bin/sh` 均无效,执行器只收到常量 |
+| 冷却 | 第二次请求 429 + `Retry-After`;时钟推过 60 秒后恢复可重启 |
+| pm2 失败 | 502,且不进入冷却(可立即重试);失败详情只进日志 |
+| 真实调用链 | `PM2_HOME=/root/.pm2 node /usr/local/bin/pm2 ping` → `pong`;`jlist` 能看到 `dsh(id=0, online)` |
+| 线上 | 4 个工具;`/tools/dsh-restart/` 200;不带密钥 401;GET 405 |
+
+> **未在生产触发真实重启**:那会杀掉当前正在对话的 dsh 会话。
+> 真实命令链通过 `pm2 ping` / `jlist` 验证(同一条 execFile 调用方式),重启本身由用户首次点击时验证。
+
+### 与 §13 第 4 条的关系(是否加 Cloudflare Access)
+
+现在**已经**出现了有副作用的接口,当时的结论是"暂不需要 Access"。当时的判断依据是:
+密钥 + 独立限流 + 全局失败预算 + 二次确认 + 60 秒冷却,已经能挡住"误触"和"单机爆破";
+Access 需要改 Cloudflare 后台(现有 token 也没有 Access:Edit 权限),且会让整站或该路径多一层登录。
+
+**遗留风险(明确记录)**:若密钥是 6 位数字,一旦被分布式爆破猜中,攻击者可反复重启 dsh(拒绝服务)。
+缓解是失败预算 + 60 秒冷却;**根治办法是换强密钥**(`openssl rand -hex 32`)。
+如果将来再加"删除/执行/写入"类接口,应重新评估是否引入 Access 或对写操作单独加 token。

@@ -4,7 +4,7 @@
 
 - 门户页(`/`)自动列出全部工具,支持搜索与标签过滤
 - 每个工具是 `tools/<slug>/` 下的一个页面,**新增工具不用改门户**
-- 构建产物是纯静态文件(`dist/`),可选配一个 Node 后端提供 `/api/*`
+- 构建产物是纯静态文件(`dist/`),同一个 Node 进程还提供 `/api/*`(少数工具需要后端能力)
 - 通过 **Cloudflare 隧道**发布到 `https://www.zeetng.cloud`,无需开放公网端口、无需 ICP 备案
 
 > 当前状态:**TypeScript 版已全量上线**。线上由 Node 单进程(静态 + `/api/*`)提供服务;
@@ -42,9 +42,10 @@ aggregation-page/
 ├── scripts/                      # dev(双进程)/ build-server(esbuild)/ smoke
 ├── tools/                        # 一个目录一个工具
 │   ├── dsh-url/                  #   TS 工具(需后端):🔑 DSH 登录地址,含自己的 README
+│   ├── dsh-restart/              #   TS 工具(需后端):🔄 重启 DSH,含自己的 README
 │   ├── timestamp/                #   TS 工具:index.html + main.ts + style.css
 │   └── json-format/              #   vanilla 工具(未迁移,整目录原样拷贝)
-├── tests/                        # Vitest:5 个文件 / 68 个用例
+├── tests/                        # Vitest:7 个文件 / 83 个用例
 ├── dist/  dist-server/           # 构建产物(gitignore)
 ├── public/                       # Python 版旧产物(gitignore,回滚期保留)
 ├── deploy/                       # systemd 单元(Node 版 + Python 回滚版)
@@ -61,11 +62,11 @@ npm run build          # 构建前端(dist/)+ 服务端(dist-server/)
 npm start              # 启动服务端(需先 build;默认 127.0.0.1:8080)
 npm run preview        # 只看前端产物 http://127.0.0.1:8081
 npm run typecheck      # tsc 全量类型检查
-npm test               # Vitest(68 个用例 / 5 个文件)
+npm test               # Vitest(83 个用例 / 7 个文件)
 npm run smoke          # 冒烟:16 项状态码断言(--port 8080 打本机,--public 打线上)
 ```
 
-实测:构建 **约 0.12 秒**(前端 0.1s + 服务端 0.01s),68 个测试约 **5 秒**,冒烟 16 项约 0.3 秒。
+实测:构建 **约 0.14 秒**(前端 0.1s + 服务端 0.01s),83 个测试约 **6 秒**,冒烟 16 项约 0.3 秒。
 
 端口约定:线上服务监听 **8080**;开发模式把 API 起在 **8090**,这样 `npm run dev` 不会打扰正在运行的服务。
 
@@ -139,6 +140,7 @@ toast('工具已加载');
 | GET | `/api/tools` | 工具清单(读 `dist/tools.json`,带 mtime 缓存) |
 | POST | `/api/echo` | 回显请求体(用于验证 JSON/体积/方法/超时各分支) |
 | GET | `/api/dsh/login-url` | 🔑 **需要 `X-Api-Key`**:返回本机 DSH Web UI 的登录地址(含进程 token) |
+| POST | `/api/dsh/restart` | 🔑⚠️ **需要 `X-Api-Key`**:重启 dsh(pm2 托管)。**站内唯一有副作用的接口**,带 60 秒冷却 |
 
 新增接口:在 `server/routes/` 建文件导出工厂函数 → 在 `server/routes/index.ts` **显式注册**
 (需要凭据的标 `auth: true`)→ 共享类型补到 `src/shared/types.ts`。
@@ -163,6 +165,13 @@ AUTH_FAILURE_BUDGET=10   # 全局失败预算:10 分钟内累计失败 10 次 �
 - 失败响应固定文案,不泄漏任何 token 片段;服务端日志只记 token 前 8 位
 - 前端**每次获取都要重新输入密钥,不做任何保存**(不写 localStorage / sessionStorage / cookie),
   请求结束即清空输入框;密钥只通过 `X-Api-Key` 头发送
+
+**有副作用的接口**(目前只有 `POST /api/dsh/restart`)额外要求:
+
+- 命令与参数必须是**常量**,用 `execFile`(不经 shell)执行,调用方输入不得进入命令
+- 必须能被**反复调用也不至于造成危害**:本接口有 `DSH_RESTART_COOLDOWN`(默认 60 秒)冷却
+- 前端必须有**二次确认**;失败不得进入冷却(便于立即重试)
+- 失败详情只写服务端日志,不回给公网调用方
 
 ### 🔑 DSH 登录地址工具(`tools/dsh-url/`)
 
@@ -236,7 +245,7 @@ npm run smoke -- --public
 | 工具构建 | 整目录拷贝 | ✅ TS 工具编译 + vanilla 拷贝 |
 | 工具元数据 | `registry.py` | ✅ `src/build/tools.ts`(构建期强校验) |
 | 静态服务 | `serve.py` | ✅ `server/`(Node,已在 8080 运行) |
-| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url` |
+| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url`、`/api/dsh/restart` |
 | systemd | `aggregation-page-python.service`(disabled) | ✅ `aggregation-page.service`(enabled) |
 
 **回滚方式**(Python 单元保留一周):
@@ -256,5 +265,6 @@ sudo systemctl start aggregation-page-python
 | --- | --- |
 | `README.md`(本文) | 当前怎么用:命令、新增工具、接口与安全约定、部署、视觉设计 |
 | `docs/ts-rewrite-plan.md` | **为什么这么设计**:架构方案(§1–§11)+ 分阶段实施记录与踩坑(§12–§17) |
-| `tools/dsh-url/README.md` | 单个工具的说明:工作原理、排障清单、涉及文件 |
+| `tools/dsh-url/README.md` | 🔑 DSH 登录地址工具:工作原理、密钥策略、排障清单 |
+| `tools/dsh-restart/README.md` | 🔄 重启 DSH 工具:流程、三道护栏、排障清单 |
 | `.env.example` | 所有服务端环境变量及含义 |

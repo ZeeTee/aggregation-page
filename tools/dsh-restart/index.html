@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  🔄 重启 DSH —— 页面结构
+
+  与 main.ts 的契约(改名要同步改 main.ts,它用 must() 取,缺了会直接报错):
+    #keyInput #prepare #status
+    #infoCard #infoText                     当前状态(重启前的 token 前缀)
+    #confirmCard #confirm #cancel           二次确认区(默认隐藏)
+    #progressCard #steps                    进度步骤列表
+    #resultCard #urlText #reveal #copy #open #validBadge #meta  重启后的新地址
+
+  为什么要有二次确认:这是站内唯一会"真的改变系统状态"的操作 ——
+  重启会断开所有 dsh 会话(包括正在进行的对话),误点代价很高。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>重启 DSH · 在线工具箱</title>
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" href="/">← 在线工具箱</a>
+  <p class="tagline">🔄 重启 DSH</p>
+</div></header>
+
+<main class="wrap">
+  <!-- ① 说明 + 密钥 + 主按钮 -->
+  <section class="card">
+    <h2>重启 DSH</h2>
+    <p class="hint">
+      重启 <code>dsh web</code> 进程。<b>会断开所有 dsh 会话</b>(包括正在进行的对话),
+      并让旧登录地址立即失效;重启完成后本页会帮你取回<b>新的登录地址</b>。
+    </p>
+    <p class="hint">本页所在的服务是独立的 systemd 服务,<b>不受 dsh 重启影响</b>,所以整个过程可以在这里看。</p>
+
+    <div class="row" style="margin-top:12px">
+      <input id="keyInput" type="password" placeholder="访问密钥(每次都要输入)"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="prepare" class="danger">重启 DSH…</button>
+    </div>
+    <p class="hint">密钥不会被保存:不写本机存储,读取后立即清空输入框。</p>
+
+    <p class="status" id="status"></p>
+  </section>
+
+  <!-- ② 当前状态(点主按钮后出现,供确认前后核对) -->
+  <section class="card" id="infoCard" hidden>
+    <h2>当前状态</h2>
+    <p class="hint" id="infoText"></p>
+  </section>
+
+  <!-- ③ 二次确认(危险操作,必须显式点确认) -->
+  <section class="card confirm" id="confirmCard" hidden>
+    <h2>⚠️ 确认重启?</h2>
+    <p class="hint">
+      确认后立即执行 <code>pm2 restart dsh</code>。你当前打开的 DSH 页面会掉线,
+      需要用重启后取到的新地址重新打开。若你正在等一个长任务跑完,请先取消。
+    </p>
+    <div class="row" style="margin-top:12px">
+      <button id="confirm" class="danger">确认重启</button>
+      <button id="cancel">取消</button>
+    </div>
+  </section>
+
+  <!-- ④ 进度(重启 + 轮询新地址) -->
+  <section class="card" id="progressCard" hidden>
+    <h2>进度</h2>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <!-- ⑤ 结果:重启后的新地址 -->
+  <section class="card" id="resultCard" hidden>
+    <h2>新的登录地址 <span class="count" id="validBadge"></span></h2>
+    <div class="url-box"><code id="urlText"></code></div>
+    <div class="row" style="margin-top:12px">
+      <button id="reveal">显示完整地址</button>
+      <button id="copy" class="primary">复制</button>
+      <button id="open">打开新的 DSH</button>
+    </div>
+    <p class="hint" id="meta"></p>
+  </section>
+</main>
+
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

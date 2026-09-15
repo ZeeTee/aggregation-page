@@ -56,6 +56,13 @@ async function withApp(
     toolsCount: () => 1,
     apiKey: KEY,
     dsh: { logDir: makeLogDir({}), logPrefix: 'dsh-out', publicHost: 'dsh.example.com', port: 3080 },
+    dshRestart: {
+      pm2Bin: '/nonexistent/pm2',
+      appName: 'dsh',
+      pm2Home: '/tmp',
+      cooldownSeconds: 60,
+      run: async () => ({ ok: true, detail: 'stub' }),
+    },
     ...options,
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));

@@ -1,0 +1,119 @@
+/* 🔄 重启 DSH —— 仅本工具特有的样式
+ *
+ * 通用组件(卡片/按钮/输入框/状态文案/.count)在 src/shared/base.css。
+ * 这里额外提供两样:危险按钮(.danger)与进度步骤列表(.steps)。
+ */
+
+/* 危险操作按钮:红橙渐变,与普通/主按钮区分开,降低误点概率 */
+button.danger {
+  border: none;
+  background: linear-gradient(120deg, #fb7185, #f59e0b);
+  color: #2a0d0d;
+  font-weight: 600;
+  box-shadow: 0 10px 26px -12px rgba(251, 113, 133, 0.85);
+}
+
+button.danger:hover {
+  color: #2a0d0d;
+  filter: brightness(1.08);
+}
+
+/* 二次确认区:加一圈警示描边,视觉上"拦住"一下 */
+.card.confirm {
+  border-color: rgba(251, 113, 133, 0.5);
+  background: rgba(251, 113, 133, 0.07);
+}
+
+/* 进度步骤:每步左侧一个状态点(doing 闪烁 / done 打勾 / warn 感叹号) */
+.steps {
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+  font-size: 14px;
+}
+
+.steps .step {
+  position: relative;
+  padding: 6px 0 6px 26px;
+  color: var(--muted);
+}
+
+.steps .step::before {
+  content: '•';
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 14px;
+  text-align: center;
+  color: var(--line-strong);
+}
+
+.steps .step.doing {
+  color: var(--ink);
+}
+
+.steps .step.doing::before {
+  content: '◌';
+  color: var(--accent);
+  animation: spin 1.2s linear infinite;
+}
+
+.steps .step.done {
+  color: var(--ok);
+}
+
+.steps .step.done::before {
+  content: '✓';
+  color: var(--ok);
+}
+
+.steps .step.warn {
+  color: var(--warn-ink);
+}
+
+.steps .step.warn::before {
+  content: '!';
+  color: var(--warn-ink);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 地址框:与 dsh-url 工具的展示保持一致(等宽 + 可折行) */
+.url-box {
+  padding: 13px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: rgba(8, 12, 20, 0.6);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.75;
+  word-break: break-all;
+}
+
+.url-box code {
+  color: var(--ink);
+}
+
+.status {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  min-height: 1.6em;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#keyInput {
+  flex: 1 1 220px;
+}
+
+#prepare {
+  flex: 0 0 auto;
+}

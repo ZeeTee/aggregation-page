@@ -1,0 +1,9 @@
+{
+  "name": "重启 DSH",
+  "description": "一键重启本机 dsh(pm2 托管),重启完成后自动帮你取回新的登录地址。有二次确认。",
+  "tags": ["运维", "内部"],
+  "icon": "🔄",
+  "status": "ready",
+  "api": true,
+  "order": 6
+}

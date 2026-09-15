@@ -48,6 +48,14 @@ async function withApp(
       publicHost: 'dsh.example.com',
       port: 3080,
     },
+    // 重启接口:默认注入一个"不会真的执行"的执行器
+    dshRestart: {
+      pm2Bin: '/nonexistent/pm2',
+      appName: 'dsh',
+      pm2Home: '/tmp',
+      cooldownSeconds: 60,
+      run: async () => ({ ok: true, detail: 'stub' }),
+    },
     ...options,
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));

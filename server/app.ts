@@ -29,6 +29,8 @@ export interface AppOptions {
   toolsCount: () => number;
   /** DSH 地址接口配置 */
   dsh: RouteDeps['dsh'];
+  /** DSH 重启接口配置(有副作用,带冷却) */
+  dshRestart: RouteDeps['dshRestart'];
   /** 自定义 404 页面路径(通常 dist/404.html) */
   notFoundPage?: string;
 }
@@ -39,6 +41,7 @@ export function createApp(options: AppOptions): Server {
     distDir: options.distDir,
     toolsCount: options.toolsCount,
     dsh: options.dsh,
+    dshRestart: options.dshRestart,
   };
   const apiRouter = createApiRouter(buildRoutes(deps), {
     log: options.log,

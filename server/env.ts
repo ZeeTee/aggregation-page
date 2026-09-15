@@ -33,6 +33,17 @@ export interface ServerEnv {
     publicHost: string;
     port: number;
   };
+  /** DSH 重启接口的配置 */
+  dshRestart: {
+    /** pm2 可执行文件路径 */
+    pm2Bin: string;
+    /** pm2 应用名 */
+    appName: string;
+    /** pm2 数据目录(PM2_HOME) */
+    pm2Home: string;
+    /** 冷却秒数:两次成功重启之间的最小间隔(0 = 不限制) */
+    cooldownSeconds: number;
+  };
 }
 
 /** 解析 .env 并注入 process.env(不覆盖已存在的变量)。返回注入的键数量。 */
@@ -71,8 +82,12 @@ export function readServerEnv(root: string, env: NodeJS.ProcessEnv = process.env
   const rawAuthLimit = Number(env['AUTH_RATE_LIMIT'] ?? '5');
   const rawBudget = Number(env['AUTH_FAILURE_BUDGET'] ?? '10');
   const rawDshPort = Number(env['DSH_PORT'] ?? '3080');
+  const rawCooldown = Number(env['DSH_RESTART_COOLDOWN'] ?? '60');
   const positive = (value: number, fallback: number): number =>
     Number.isInteger(value) && value > 0 ? value : fallback;
+  /** 冷却允许 0(表示不限制),所以单独判断 */
+  const nonNegative = (value: number, fallback: number): number =>
+    Number.isInteger(value) && value >= 0 ? value : fallback;
 
   return {
     host: env['HOST'] ?? '127.0.0.1',
@@ -88,6 +103,12 @@ export function readServerEnv(root: string, env: NodeJS.ProcessEnv = process.env
       logPrefix: env['DSH_LOG_PREFIX'] ?? 'dsh-out',
       publicHost: env['DSH_PUBLIC_HOST'] ?? 'dsh.zeetng.cloud',
       port: Number.isInteger(rawDshPort) && rawDshPort > 0 && rawDshPort < 65536 ? rawDshPort : 3080,
+    },
+    dshRestart: {
+      pm2Bin: env['PM2_BIN'] ?? '/usr/local/bin/pm2',
+      appName: env['DSH_APP_NAME'] ?? 'dsh',
+      pm2Home: env['PM2_HOME'] ?? '/root/.pm2',
+      cooldownSeconds: nonNegative(rawCooldown, 60),
     },
   };
 }

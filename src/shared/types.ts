@@ -50,3 +50,19 @@ export interface DshLoginUrl {
   /** 命中的日志文件与行号,便于排障 */
   source: string;
 }
+
+/**
+ * POST /api/dsh/restart 的响应(前后端共用同一份类型)。
+ * ⚠️ 该接口有副作用(会重启 dsh、断开所有会话),需要 X-Api-Key,且有冷却时间。
+ */
+export interface DshRestartResult {
+  restarted: true;
+  /** pm2 应用名,通常为 dsh */
+  appName: string;
+  /** 执行 pm2 restart 命令耗时(毫秒) */
+  tookMs: number;
+  /** 触发时间(ISO) */
+  at: string;
+  /** 给用户看的提示(旧地址已失效等) */
+  note: string;
+}
