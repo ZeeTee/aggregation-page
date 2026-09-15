@@ -268,3 +268,27 @@ sudo systemctl start aggregation-page-python
 | `tools/dsh-url/README.md` | 🔑 DSH 登录地址工具:工作原理、密钥策略、排障清单 |
 | `tools/dsh-restart/README.md` | 🔄 重启 DSH 工具:流程、三道护栏、排障清单 |
 | `.env.example` | 所有服务端环境变量及含义 |
+
+## 给 AI 助手的 skill
+
+`.dsh/skills/add-tool/SKILL.md` 把「新增一个工具」的全套约定固化成了 DSH 的 skill:
+目录结构与 `tool.json` 校验规则、TS / vanilla 两种写法、共享模块、后端接口注册步骤、
+密钥与安全约束、以及 typecheck → test → build → restart → smoke → 提交推送的验证流程。
+
+这样换个新会话也不用重新交代规矩,说一句"加个 XX 工具"即可自动按标准流程执行。
+
+### 发现机制与本地挂载(换机器时需要重建)
+
+DSH 从**当前工作目录向上找第一个 `.git`** 作为项目根,再读 `<项目根>/.dsh/skills/`。
+本机的工作目录是 `/root/dshworkspace`(它本身不是 git 仓库),所以项目内的 skill
+**不会自动被发现** —— 需要在工作目录一侧挂一个软链(已在本地建好,**不在 git 里**):
+
+```bash
+mkdir -p /root/dshworkspace/.dsh/skills
+ln -sfn /root/dshworkspace/aggregation-page/.dsh/skills/add-tool \
+        /root/dshworkspace/.dsh/skills/add-tool
+```
+
+真实文件只有一份(仓库内这个),上面是软链 —— 单一来源,不会漂移。建好后 DSH 会
+热加载,无需重启。若哪天从 `aggregation-page/` 目录内部启动会话,项目根就是它自己,
+软链反而用不上,skill 直接生效。
