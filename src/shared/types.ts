@@ -66,3 +66,56 @@ export interface DshRestartResult {
   /** 给用户看的提示(旧地址已失效等) */
   note: string;
 }
+
+/**
+ * 手工新闻队列里的一条(对应 ai-news-daily 的 data/manual_queue.json)。
+ *
+ * 状态不在这里给字符串,而是让前端从 consumedAt / result 自行推断,
+ * 避免依赖 Python 侧的中文文案。
+ */
+export interface ManualNewsEntry {
+  id: string;
+  url: string;
+  title: string;
+  summary: string;
+  note: string;
+  /** 加入时间(本地时间,ISO 无时区) */
+  addedAt: string;
+  /** 被日报处理的时间;空表示还没处理 */
+  consumedAt: string;
+  /** 'included'(已并入日报) | 'duplicate'(与已有新闻重复,已跳过) | ''(待用) */
+  result: string;
+  /** 抓到的正文长度(0 表示没抓到,日报里只依据标题/导语) */
+  bodyChars: number;
+  /** 是否今天加入的 */
+  isToday: boolean;
+}
+
+/** GET /api/news/manual 的响应(需要 X-Api-Key)。 */
+export interface ManualNewsList {
+  /** 服务端认定的"今天"(YYYY-MM-DD),避免前后端时区判断不一致 */
+  today: string;
+  /** 队列文件路径(只读展示,便于排障) */
+  queueFile: string;
+  entries: ManualNewsEntry[];
+  counts: {
+    today: number;
+    pending: number;
+    duplicate: number;
+  };
+}
+
+/**
+ * POST /api/news/manual 的响应(需要 X-Api-Key,有冷却)。
+ *
+ * 顺带把刷新后的列表一起返回 —— 前端添加完不必再发一次 GET,
+ * 这样一次操作只消耗一个请求额度(鉴权接口限流较严)。
+ */
+export interface ManualNewsAddResult {
+  action: 'added' | 'duplicate' | 'invalid';
+  /** 附加说明(如"最近日报已收录过"),可能为空 */
+  message: string;
+  /** 成功添加时对应的条目 */
+  entry: ManualNewsEntry | null;
+  list: ManualNewsList;
+}

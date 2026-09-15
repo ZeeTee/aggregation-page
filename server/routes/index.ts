@@ -14,7 +14,9 @@
  *   GET  /api/tools            公开    工具清单
  *   POST /api/echo             公开    回显(用于验证各错误分支)
  *   GET  /api/dsh/login-url    🔑      读取 dsh 当前登录地址(含 token)
- *   POST /api/dsh/restart      🔑⚠️    重启 dsh(唯一有副作用的接口,带冷却)
+ *   POST /api/dsh/restart      🔑⚠️    重启 dsh(有副作用,带冷却)
+ *   GET  /api/news/manual      🔑      手工新闻队列(ai-news-daily)
+ *   POST /api/news/manual      🔑⚠️    添加手工新闻(写入明天日报,带冷却)
  */
 
 import type { Route } from '../api.ts';
@@ -22,6 +24,7 @@ import { dshRestartRoute, type DshRestartDeps } from './dsh-restart.ts';
 import { dshRoute, type DshRouteDeps } from './dsh.ts';
 import { echoRoute } from './echo.ts';
 import { healthRoute } from './health.ts';
+import { newsRoutes, type NewsDeps } from './news.ts';
 import { toolsRoute } from './tools.ts';
 
 export interface RouteDeps {
@@ -33,6 +36,8 @@ export interface RouteDeps {
   dsh: DshRouteDeps;
   /** DSH 重启接口配置(来自环境变量) */
   dshRestart: DshRestartDeps;
+  /** 手工新闻队列接口配置(来自环境变量) */
+  news: NewsDeps;
 }
 
 export function buildRoutes(deps: RouteDeps): Route[] {
@@ -42,5 +47,6 @@ export function buildRoutes(deps: RouteDeps): Route[] {
     echoRoute(),
     dshRoute(deps.dsh),
     dshRestartRoute(deps.dshRestart),
+    ...newsRoutes(deps.news),
   ];
 }

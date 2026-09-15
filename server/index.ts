@@ -73,6 +73,7 @@ const server = createApp({
   toolsCount: makeToolsCounter(env.distDir),
   dsh: env.dsh,
   dshRestart: env.dshRestart,
+  news: env.news,
   ...(existsSync(notFoundPage) ? { notFoundPage } : {}),
 });
 
@@ -86,6 +87,7 @@ server.listen(env.port, env.host, () => {
     apiKeyConfigured: env.apiKey !== '',
     dshHost: env.dsh.publicHost,
     dshRestartCooldown: env.dshRestart.cooldownSeconds,
+    newsProjectDir: env.news.projectDir,
     logLevel: env.logLevel,
   });
 });

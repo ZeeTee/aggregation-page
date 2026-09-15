@@ -44,6 +44,17 @@ export interface ServerEnv {
     /** 冷却秒数:两次成功重启之间的最小间隔(0 = 不限制) */
     cooldownSeconds: number;
   };
+  /** 手工新闻队列接口的配置(数据来自 ai-news-daily 项目) */
+  news: {
+    /** python3 可执行文件路径 */
+    pythonBin: string;
+    /** ai-news-daily 项目目录(作为执行时的工作目录) */
+    projectDir: string;
+    /** 抓取网页的超时秒数;必须给 api.ts 的 10s 超时留足余量 */
+    fetchTimeoutSeconds: number;
+    /** 两次成功添加之间的最小间隔秒数(0 = 不限制) */
+    addCooldownSeconds: number;
+  };
 }
 
 /** 解析 .env 并注入 process.env(不覆盖已存在的变量)。返回注入的键数量。 */
@@ -83,6 +94,8 @@ export function readServerEnv(root: string, env: NodeJS.ProcessEnv = process.env
   const rawBudget = Number(env['AUTH_FAILURE_BUDGET'] ?? '10');
   const rawDshPort = Number(env['DSH_PORT'] ?? '3080');
   const rawCooldown = Number(env['DSH_RESTART_COOLDOWN'] ?? '60');
+  const rawNewsFetchTimeout = Number(env['NEWS_FETCH_TIMEOUT'] ?? '5');
+  const rawNewsAddCooldown = Number(env['NEWS_ADD_COOLDOWN'] ?? '3');
   const positive = (value: number, fallback: number): number =>
     Number.isInteger(value) && value > 0 ? value : fallback;
   /** 冷却允许 0(表示不限制),所以单独判断 */
@@ -109,6 +122,12 @@ export function readServerEnv(root: string, env: NodeJS.ProcessEnv = process.env
       appName: env['DSH_APP_NAME'] ?? 'dsh',
       pm2Home: env['PM2_HOME'] ?? '/root/.pm2',
       cooldownSeconds: nonNegative(rawCooldown, 60),
+    },
+    news: {
+      pythonBin: env['NEWS_PYTHON_BIN'] ?? '/usr/bin/python3',
+      projectDir: env['NEWS_DAILY_DIR'] ?? '/root/dshworkspace/ai-news-daily',
+      fetchTimeoutSeconds: positive(rawNewsFetchTimeout, 5),
+      addCooldownSeconds: nonNegative(rawNewsAddCooldown, 3),
     },
   };
 }

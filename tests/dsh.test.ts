@@ -63,6 +63,13 @@ async function withApp(
       cooldownSeconds: 60,
       run: async () => ({ ok: true, detail: 'stub' }),
     },
+    news: {
+      pythonBin: '/nonexistent/python3',
+      projectDir: '/tmp',
+      fetchTimeoutSeconds: 5,
+      addCooldownSeconds: 0,
+      run: async () => ({ code: 0, stdout: '{"ok":true,"entries":[]}', stderr: '' }),
+    },
     ...options,
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));

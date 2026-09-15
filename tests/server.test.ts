@@ -56,6 +56,14 @@ async function withApp(
       cooldownSeconds: 60,
       run: async () => ({ ok: true, detail: 'stub' }),
     },
+    // 手工新闻接口:同样注入桩执行器,测试里绝不真的去跑 python
+    news: {
+      pythonBin: '/nonexistent/python3',
+      projectDir: '/tmp',
+      fetchTimeoutSeconds: 5,
+      addCooldownSeconds: 0,
+      run: async () => ({ code: 0, stdout: '{"ok":true,"entries":[]}', stderr: '' }),
+    },
     ...options,
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));

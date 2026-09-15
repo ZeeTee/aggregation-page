@@ -62,6 +62,13 @@ async function start(options: {
       run,
       ...(options.now !== undefined ? { now: options.now } : {}),
     },
+    news: {
+      pythonBin: '/nonexistent/python3',
+      projectDir: '/tmp',
+      fetchTimeoutSeconds: 5,
+      addCooldownSeconds: 0,
+      run: async () => ({ code: 0, stdout: '{"ok":true,"entries":[]}', stderr: '' }),
+    },
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   const address = server.address();
@@ -232,6 +239,13 @@ describe('重启接口:失败处理', () => {
         pm2Home: '/tmp',
         cooldownSeconds: 60,
         // 注意:不注入 run → 走默认真实执行器路径,会先做存在性检查
+      },
+      news: {
+        pythonBin: '/nonexistent/python3',
+        projectDir: '/tmp',
+        fetchTimeoutSeconds: 5,
+        addCooldownSeconds: 0,
+        run: async () => ({ code: 0, stdout: '{"ok":true,"entries":[]}', stderr: '' }),
       },
     });
     await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));

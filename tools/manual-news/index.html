@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<!--
+  📰 手工新闻 —— 页面结构
+
+  设计要点(与 main.ts 的契约):
+    · 这里只放"骨架",所有交互逻辑在 main.ts;样式来自 base.css + ./style.css
+    · 下面这些 id 是 JS 依赖的,**改名要同步改 main.ts**(main.ts 用 must() 取,缺了会直接报错):
+        #url #title #summary #note #keyInput #add #refresh #status #meta #list
+    · 密钥输入框常显且**不保存**:每次操作都要重新输入(与站内其他工具一致;
+      自动填充类属性全部关掉,避免浏览器代填/存进密码管理器)
+    · 列表由 JS 渲染,初始为空并给出"输入密钥后加载"的提示
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>手工新闻 · 在线工具箱</title>
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" href="/">← 在线工具箱</a>
+  <p class="tagline">📰 手工新闻</p>
+</div></header>
+
+<main class="wrap">
+  <!-- ① 添加:链接 + 高级选项 + 密钥 -->
+  <section class="card">
+    <h2>添加一条新闻到 AI 日报</h2>
+    <p class="hint">
+      给它一个链接即可:服务端会自动抓取标题与正文,并在**下一次日报**里
+      <b>保底入选</b>(不占常规的 20 条名额)。
+      <br>
+      <b>去重规则照旧</b> —— 最近日报已收录过的链接会被直接跳过,不会重复出现。
+    </p>
+
+    <div class="row" style="margin-top:12px">
+      <input id="url" type="url" placeholder="https://…… 新闻链接"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="add" class="primary">添加到日报</button>
+    </div>
+
+    <details id="advanced">
+      <summary>高级选项(页面抓不到标题/正文时手动补)</summary>
+      <div class="field">
+        <label for="title">标题</label>
+        <input id="title" type="text" placeholder="留空则由服务端抓取"
+               autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="summary">导语</label>
+        <textarea id="summary" rows="3" placeholder="留空则由服务端抓取正文后摘要"
+                  spellcheck="false"></textarea>
+      </div>
+      <div class="field">
+        <label for="note">备注</label>
+        <input id="note" type="text" placeholder="只写进日报运行日志,不进正文"
+               autocomplete="off" spellcheck="false">
+      </div>
+    </details>
+
+    <div class="row">
+      <!-- type=password 防肩窥;autocomplete=off 防浏览器代填与保存提示 -->
+      <input id="keyInput" type="password" placeholder="访问密钥(每次操作都需输入)"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <p class="status" id="status"></p>
+  </section>
+
+  <!-- ② 当天已添加的新闻 -->
+  <section class="card">
+    <div class="card-head">
+      <h2>今天添加的新闻</h2>
+      <button id="refresh">刷新</button>
+    </div>
+    <p class="hint" id="meta">输入上面的访问密钥后,点「刷新」加载列表。</p>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

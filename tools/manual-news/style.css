@@ -1,0 +1,175 @@
+/* 📰 手工新闻专用样式(通用部分在 src/shared/base.css) */
+
+/* 卡片标题行:标题靠左、操作按钮靠右 */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.card-head h2 {
+  margin: 0;
+}
+
+/* 高级选项折叠区 */
+details {
+  margin: 12px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  background: var(--bg-soft);
+}
+
+details[open] {
+  padding-bottom: 12px;
+}
+
+summary {
+  cursor: pointer;
+  padding: 9px 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::before {
+  content: '▸ ';
+  color: var(--accent);
+}
+
+details[open] summary::before {
+  content: '▾ ';
+}
+
+summary:hover {
+  color: var(--accent);
+}
+
+.field {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.field label {
+  flex: 0 0 52px;
+  padding-top: 9px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.field input,
+.field textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field textarea {
+  min-height: 66px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+/* 状态行:沿用 base.css 的 .status 思路,这里给三态配色 */
+.status {
+  margin: 12px 0 0;
+  min-height: 1.6em;
+  font-size: 13.5px;
+  word-break: break-all;
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.err {
+  color: var(--err);
+}
+
+.status.warn {
+  color: var(--warn-ink);
+}
+
+/* ---- 列表 ---- */
+.entry {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.entry:first-child {
+  border-top: none;
+}
+
+.entry .badge {
+  grid-row: 1 / span 2;
+  align-self: start;
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+}
+
+.entry .badge.pending {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.entry .badge.used {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.entry .badge.dup {
+  border-color: var(--warn-line);
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+}
+
+.entry .title {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ink-strong);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.entry .title:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.entry .meta,
+.entry .note {
+  grid-column: 2;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.entry .note {
+  font-style: italic;
+}
+
+h3.sub {
+  margin: 18px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
