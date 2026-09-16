@@ -25,6 +25,11 @@ import '../../src/shared/base.css';
 import './style.css';
 
 import { ApiError, callApi } from '../../src/shared/api';
+import {
+  POLL_INTERVAL_MS,
+  POLL_TIMEOUT_MS,
+  RATE_LIMIT_BACKOFF_MS,
+} from './polling';
 import { copyText } from '../../src/shared/clipboard';
 import { must } from '../../src/shared/dom';
 import { toast } from '../../src/shared/toast';
@@ -32,8 +37,7 @@ import type { DshLoginUrl, DshRestartResult } from '../../src/shared/types';
 
 // ---------------------------------------------------------------- 常量
 /** 轮询新地址的间隔与总时长:dsh 重启通常 1–3 秒出新 token */
-const POLL_INTERVAL_MS = 1_200;
-const POLL_TIMEOUT_MS = 35_000;
+
 
 // ---------------------------------------------------------------- DOM
 const keyInput = must<HTMLInputElement>('#keyInput');
@@ -160,7 +164,13 @@ async function prepare(): Promise<void> {
 // ---------------------------------------------------------------- 步骤二:轮询新地址
 /**
  * 重启后轮询登录地址,直到 token 变了且校验通过。
- * 重启期间 dsh 会短暂拒绝连接,所以这里**吞掉轮询中的错误**继续等,超时再提示。
+ *
+ * ⚠️ 为什么间隔是 2 秒、超时 45 秒(实测数据):
+ *   dsh 进程启动到把 token 打印进日志,实测需要 **约 8.6 秒**。而
+ *   `/api/dsh/login-url` 是需要密钥的接口,走独立的鉴权限流 —— 轮询太快会
+ *   把额度烧光,反而在 token 出现的那一刻被 429 挡住(曾经就踩过这个坑:
+ *   1.2 秒一次,5 次额度在 5.5 秒耗尽,token 却在 8.6 秒才出现 → 必然超时)。
+ *   所以:间隔放宽到 2 秒,额度足够覆盖整个启动期;总超时放到 45 秒留足余量。
  */
 async function pollNewUrl(): Promise<DshLoginUrl | null> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -169,8 +179,13 @@ async function pollNewUrl(): Promise<DshLoginUrl | null> {
     try {
       const info = await callApi<DshLoginUrl>('/api/dsh/login-url', { apiKey: pendingKey });
       if (info.tokenPreview !== previousPreview && info.valid) return info;
-    } catch {
-      // 忽略:重启过程中接口可能返回 503/502,继续等
+    } catch (error) {
+      // 重启期间接口会短暂 502/503(进程还没起来、token 还没打印)—— 继续等。
+      // 但限流类错误不能按普通间隔重试,否则会把额度空转干净:退避更久。
+      if (error instanceof ApiError
+        && (error.code === 'rate_limited' || error.code === 'auth_locked')) {
+        await sleep(RATE_LIMIT_BACKOFF_MS);
+      }
     }
   }
   return null;
@@ -199,7 +214,7 @@ async function confirmRestart(): Promise<void> {
     });
     finishLastStep(`重启命令已执行(耗时 ${result.tookMs} ms)`, 'done');
 
-    addStep('等待 dsh 重新启动并生成新令牌…', 'doing');
+    addStep('等待 dsh 重新启动并生成新令牌(约 10 秒)…', 'doing');
     const info = await pollNewUrl();
     if (info === null) {
       finishLastStep(`超时:${POLL_TIMEOUT_MS / 1000} 秒内没取到新地址`, 'warn');

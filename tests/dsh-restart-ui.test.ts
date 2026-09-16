@@ -15,6 +15,14 @@ import { readFileSync } from 'node:fs';
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  AUTH_RATE_LIMIT,
+  DSH_STARTUP_MS,
+  POLL_INTERVAL_MS,
+  POLL_TIMEOUT_MS,
+  SETUP_REQUESTS,
+} from '../tools/dsh-restart/polling.ts';
+
 const GOOD_KEY = '521016';
 const TOKEN_OLD = 'OLDTOKEN_1234567890';
 const TOKEN_NEW = 'NEWTOKEN_abcdefghij';
@@ -140,7 +148,9 @@ describe('重启 DSH 工具', () => {
     expect(restartCalls).toBe(0);
 
     q<HTMLButtonElement>('#confirm').click();
-    await sleep(2000); // POST + 一次轮询(间隔 1.2s)
+    // POST 立即返回,之后要等**首次轮询**(间隔 POLL_INTERVAL_MS)拿到新令牌。
+    // 这里从常量推导而不是写死毫秒数,免得以后调间隔又把这个用例写挂。
+    await sleep(POLL_INTERVAL_MS + 800);
 
     expect(restartCalls).toBe(1);
     expect(q<HTMLElement>('#resultCard').hidden).toBe(false);
@@ -165,5 +175,33 @@ describe('重启 DSH 工具', () => {
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
     expect(document.cookie).toBe('');
+  });
+});
+
+/**
+ * 轮询预算回归测试(对应一次真实故障)。
+ *
+ * 故障现场:轮询间隔 1.2 秒、鉴权限流 5 次/分钟,于是"读取旧地址 + 触发重启 +
+ * 3 次轮询"在 5.5 秒就耗尽了额度,而 dsh 实测要 **8.6 秒**才把新 token 打印进
+ * 日志 —— token 出现的那一刻轮询已经被 429 封死,必然超时。
+ *
+ * 这里守住的不变量:一次重启流程的最坏鉴权请求数必须放得进服务端额度,
+ * 且轮询间隔不能短到在 token 出现之前就把额度烧掉。
+ */
+describe('重启工具 —— 轮询额度预算', () => {
+
+  it('最坏情况下的鉴权请求数不超过服务端额度', () => {
+    const worstCase = SETUP_REQUESTS + Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS);
+    expect(worstCase).toBeLessThanOrEqual(AUTH_RATE_LIMIT);
+  });
+
+  it('轮询间隔足够长:token 出现前不会烧掉超过一半额度', () => {
+    // dsh 启动期间会发出去的轮询次数
+    const pollsBeforeToken = Math.floor(DSH_STARTUP_MS / POLL_INTERVAL_MS);
+    expect(SETUP_REQUESTS + pollsBeforeToken).toBeLessThan(AUTH_RATE_LIMIT / 2);
+  });
+
+  it('总超时覆盖得住 dsh 启动时间,并留有余量', () => {
+    expect(POLL_TIMEOUT_MS).toBeGreaterThan(DSH_STARTUP_MS * 2);
   });
 });
