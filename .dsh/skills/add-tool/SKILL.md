@@ -1,6 +1,6 @@
 ---
 name: add-tool
-description: 在 aggregation-page「在线工具箱」(https://www.zeetng.cloud) 新增一个工具页面,或为工具新增后端 API 接口。涵盖 tools/ 目录约定、tool.json 校验规则、TS/vanilla 两种写法、密钥与安全约定、以及测试/构建/部署/提交的完整流程。
+description: 在 aggregation-page「在线工具箱」(https://www.zeetng.cloud) 新增一个工具页面,或为工具新增后端 API 接口。涵盖 tools/ 目录约定、tool.json 校验规则、TS/vanilla 两种写法、密钥与安全约定、长耗时接口的后台任务与轮询写法、以及各工具的参考实现对照。
 whenToUse: 当用户要求在「在线工具箱」或 aggregation-page 项目里加一个工具、加一个 /api 接口、或修改 tools/ 下已有工具时使用。
 ---
 
@@ -9,6 +9,8 @@ whenToUse: 当用户要求在「在线工具箱」或 aggregation-page 项目里
 项目根:`/root/dshworkspace/aggregation-page`
 线上:https://www.zeetng.cloud(Cloudflare 隧道 → 本机 127.0.0.1:8080)
 
+> 📌 **动手前先看 §11「参考实现」** —— 按你要做的东西挑一个现有工具抄,比自己从零想快得多。
+>
 > **贯穿全程的硬约束:运行时依赖必须保持为零。**
 > `package.json` 里 `dependencies` 不存在,只有 `devDependencies`。
 > 生产 `dist-server/index.js` 是 esbuild 打出的单文件,靠 Node 内置模块运行。
@@ -169,6 +171,36 @@ toast('工具已加载');
 - 接口层已统一处理:`/api/*` 每 IP 60 次/分钟(429 + `Retry-After`)、请求体 64KB 上限(413)、
   10 秒超时(504)、响应 `Cache-Control: no-store`
 
+### ⚠️ 10 秒是硬上限:超过就必须做成"后台任务 + 轮询"
+
+接口层对所有 `/api` 请求有**一条统一的 10 秒超时**。任何可能超过 10 秒的活儿
+(npm/pip 安装、抓取慢站点、等某个进程重启…)**不能同步返回** —— 逻辑再正确也会被接口层 504。
+
+做法(照抄 `server/routes/dsh-update.ts`):
+
+- `POST` 只**启动**任务并立即返回;任务状态(步骤列表 + `running|ok|failed`)存内存
+- `GET` 返回该状态,前端轮询渲染进度
+- 给 deps 留**可注入的超时/间隔**参数,否则单测要真等几十秒(没法用)
+
+#### 轮询间隔必须拿额度反算(这条踩过两次)
+
+`auth: true` 的接口走**独立限流**(`.env` 的 `AUTH_RATE_LIMIT`,当前 30/分钟)。
+**轮询会持续吃这个额度**,间隔太小就会在关键节点被 429 挡住。必须满足:
+
+```
+固定请求数 + ⌈总超时 / 轮询间隔⌉ ≤ AUTH_RATE_LIMIT
+```
+
+真实事故:重启工具以 1.2 秒轮询 `/api/dsh/login-url`,而当时 `AUTH_RATE_LIMIT=5`
+—— 额度在 5.5 秒耗尽,而 dsh 要 8.6 秒才打印新 token,**每次点都必然超时**。
+
+配套三条规矩:
+
+- 轮询的 `catch` **不能一律吞掉**:要识别 `rate_limited` / `auth_locked` 并**退避更久**
+- 前端与测试**都不许写死毫秒等待**,从常量推导(否则调间隔就把测试写挂)
+- 常量抽到独立模块(如 `tools/<slug>/polling.ts`):`main.ts` 顶层要取 DOM,
+  单测直接 import 会炸;独立后单测才能守住上面那个不等式
+
 ## 7. 安全约定(**后端工具必读**)
 
 站点经隧道**对公网开放**,一律按公网可达设计:
@@ -206,6 +238,14 @@ npm run smoke -- --public       # 线上冒烟
 
 - 纯前端工具的逻辑**要补单测**;DOM 相关的测试文件顶部必须加 `// @vitest-environment happy-dom`
 - `tests/hub.test.ts` 的期望值是从 `tools/` **动态推导**的,新增工具**不需要改它**
+- **改了 `RouteDeps` / `AppOptions` 后,必须同步所有测试 harness 里的桩构造** ——
+  `tests/{server,dsh,dsh-restart,news}.test.ts` 各有一份,漏掉就会在 typecheck 时
+  一次性报一堆"缺字段"(加**一个**依赖会牵动 4 个文件)。桩一律用惰性值
+  (`'/nonexistent/xxx'` + `run: async () => ...`),保证测试永不执行真实命令
+- **新接口要补冒烟断言**(`scripts/smoke.ts`):受保护接口写成 `[401, 429]` 而**不是**死写 401 ——
+  冒烟一次会连打多个鉴权接口,连跑两遍就会撞限流,死写 401 会变成假失败
+- 写轮询相关的测试时,**给测试用的 app 放宽 `authRateLimit`**:测试轮询很密
+  (几十毫秒一次),否则会被限流打满,报出一堆看不懂的 `undefined` 错误
 - Node 22 的 TS 剥离模式**不支持** `enum` / `namespace` / 构造器参数属性
   (`constructor(readonly x: number)`),`server/` 下被 node 直接执行的 `.ts` 尤其注意
 - 所有 TS import **必须带 `.ts` 后缀**(`allowImportingTsExtensions`)
@@ -232,6 +272,32 @@ git push                                 # git@github.com:ZeeTee/aggregation-pag
 - [ ] 没有新增运行时依赖
 - [ ] 密钥没有被持久化,也没出现在 URL 里
 - [ ] 有副作用的接口带冷却;需要凭据的接口标了 `auth: true`
+- [ ] 若接口可能超过 10 秒:已改成**后台任务 + 轮询**,且轮询间隔用 `AUTH_RATE_LIMIT` 反算过
+- [ ] 若改过 `RouteDeps` / `AppOptions`:4 个测试 harness 的桩都同步了
 - [ ] typecheck / test / build / smoke 全过
 - [ ] 已 `systemctl restart`,线上 URL 能打开
 - [ ] README 与提交推送都完成
+
+## 11. 参考实现(动手前先挑一个抄)
+
+现有工具就是最好的模板。按"你要做的东西"挑:
+
+| 你要做的 | 抄这个 | 它示范了什么 |
+| --- | --- | --- |
+| 纯前端小工具 | `tools/timestamp/` | TS 工具最小形态、共享模块用法 |
+| 自包含老式页面 | `tools/json-format/` | vanilla 写法、`/assets/base.css` |
+| 读一个本机敏感值 | `tools/dsh-url/` | 密钥校验、**默认打码 + 显示按钮** |
+| **有副作用**的操作 | `tools/dsh-restart/` | 二次确认、冷却、取消即丢弃密钥、进度步骤 |
+| **调用另一个项目** | `tools/manual-news/` | 跨项目:execFile 调对方 CLI 读 JSON |
+| **耗时超过 10 秒** | `tools/dsh-update/` | **后台任务 + 轮询**、失败时中止后续步骤、回滚 |
+
+### 从 `dsh-update` 抄的几条通用经验
+
+- **危险操作要把"自救入口"放在 dsh 之外**:它更新 dsh 本身,而 dsh 挂了就打不开 dsh 的任何页面
+  —— 所以回滚做在工具站(独立服务),用户不必 SSH 就能救回来。做"会弄挂别的东西"的工具时,
+  先想清楚:**出事之后,用户从哪里点回来?**
+- **一失败就停,不要继续做危险的下一步**:npm 装包失败时**绝不重启 dsh**,
+  否则等于用一个没装上的版本把服务弄挂。
+- **注入执行器和时钟**(`run` / `now`),测试才能在毫秒内跑完一条几十秒的真实流程。
+- **状态要落盘**:跨重启要用的东西(如"上一版本")写 `data/`(已 gitignore),
+  内存状态用于任务进度即可。
