@@ -62,6 +62,9 @@ const checks: Check[] = [
   // 手工新闻接口:POST 不带 Content-Type,确认未授权时**在碰请求体之前**就被拒
   { path: '/api/news/manual', expect: [401, 429] },
   { path: '/api/news/manual', expect: [401, 429], method: 'POST' },
+  // DSH 更新接口同理:未授权绝不能触发更新/重启
+  { path: '/api/dsh/update', expect: [401, 429] },
+  { path: '/api/dsh/update', expect: [401, 429], method: 'POST' },
   // 安全:目录穿越必须被挡住
   // · /../ 会被 URL 解析器归一化成 /package.json → 404
   // · /%2e%2e%2f 是"段内编码斜杠",源站 resolveWithin 返回 403;

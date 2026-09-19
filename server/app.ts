@@ -33,6 +33,8 @@ export interface AppOptions {
   dshRestart: RouteDeps['dshRestart'];
   /** 手工新闻队列接口配置(数据来自 ai-news-daily) */
   news: RouteDeps['news'];
+  /** DSH 更新接口配置(有副作用:会更新并重启 dsh) */
+  dshUpdate: RouteDeps['dshUpdate'];
   /** 自定义 404 页面路径(通常 dist/404.html) */
   notFoundPage?: string;
 }
@@ -45,6 +47,7 @@ export function createApp(options: AppOptions): Server {
     dsh: options.dsh,
     dshRestart: options.dshRestart,
     news: options.news,
+    dshUpdate: options.dshUpdate,
   };
   const apiRouter = createApiRouter(buildRoutes(deps), {
     log: options.log,

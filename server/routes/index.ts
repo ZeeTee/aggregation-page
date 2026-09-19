@@ -17,11 +17,14 @@
  *   POST /api/dsh/restart      🔑⚠️    重启 dsh(有副作用,带冷却)
  *   GET  /api/news/manual      🔑      手工新闻队列(ai-news-daily)
  *   POST /api/news/manual      🔑⚠️    添加手工新闻(写入明天日报,带冷却)
+ *   GET  /api/dsh/update       🔑      DSH 版本检测 / 更新任务进度
+ *   POST /api/dsh/update       🔑⚠️    更新或回滚 DSH(后台任务,带冷却)
  */
 
 import type { Route } from '../api.ts';
 import { dshRestartRoute, type DshRestartDeps } from './dsh-restart.ts';
 import { dshRoute, type DshRouteDeps } from './dsh.ts';
+import { dshUpdateRoutes, type DshUpdateDeps } from './dsh-update.ts';
 import { echoRoute } from './echo.ts';
 import { healthRoute } from './health.ts';
 import { newsRoutes, type NewsDeps } from './news.ts';
@@ -38,6 +41,8 @@ export interface RouteDeps {
   dshRestart: DshRestartDeps;
   /** 手工新闻队列接口配置(来自环境变量) */
   news: NewsDeps;
+  /** DSH 更新接口配置(来自环境变量) */
+  dshUpdate: DshUpdateDeps;
 }
 
 export function buildRoutes(deps: RouteDeps): Route[] {
@@ -48,5 +53,6 @@ export function buildRoutes(deps: RouteDeps): Route[] {
     dshRoute(deps.dsh),
     dshRestartRoute(deps.dshRestart),
     ...newsRoutes(deps.news),
+    ...dshUpdateRoutes(deps.dshUpdate),
   ];
 }

@@ -14,6 +14,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# 本地运行状态(如 DSH 更新的上一版本记录;勿入库)
+data/
+
 # 工具缓存
 .vite/
 coverage/

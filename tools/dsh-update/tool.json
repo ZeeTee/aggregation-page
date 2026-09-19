@@ -1,0 +1,9 @@
+{
+  "name": "DSH 更新",
+  "description": "检测 DSH 是否有新版本,一键更新并重启;升级出问题可一键回滚到上一版本。",
+  "tags": ["运维", "内部"],
+  "icon": "🤖",
+  "status": "ready",
+  "api": true,
+  "order": 7
+}

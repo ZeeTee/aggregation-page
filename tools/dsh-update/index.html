@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!--
+  🤖 DSH 更新 —— 页面结构
+
+  ⚠️ 这个工具会**更新并重启 dsh 本身**(也就是你正在用的这个 GUI 的宿主):
+     升到坏版本会让 dsh 起不来。所以流程刻意做成"先检测、再选择、二次确认、最后动手",
+     并配一键回滚。
+
+  为什么回滚放在这个工具站而不是 dsh 里:dsh 挂了就打不开 dsh 的任何页面 ——
+  本工具站是**独立服务**,所以它是唯一还能救回来的入口。
+
+  与 main.ts 的契约(改名要同步改 main.ts,用 must() 取,缺了会直接报错):
+    #keyInput #check #current #target #custom #actionRow #update #rollback #status
+    #progress #steps #result #newUrl #reveal #copy #open #confirmBox #confirmYes #confirmNo
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DSH 更新 · 在线工具箱</title>
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" href="/">← 在线工具箱</a>
+  <p class="tagline">🤖 DSH 更新</p>
+</div></header>
+
+<main class="wrap">
+  <!-- ① 版本与目标 -->
+  <section class="card">
+    <h2>版本检测</h2>
+    <p class="hint">
+      检测 <code>@deepseek-ai/dsh</code> 的可用版本并更新。更新会
+      <b>重启 dsh</b>,当前所有会话会断开 —— 完成后这里会给出新登录地址。
+    </p>
+
+    <div class="row" style="margin-top:12px">
+      <input id="keyInput" type="password" placeholder="访问密钥(每次操作都需输入)"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="check" class="primary">检测新版本</button>
+    </div>
+
+    <div id="current" class="versions" hidden></div>
+
+    <div id="actionRow" hidden>
+      <div class="field">
+        <label for="target">更新到</label>
+        <select id="target"></select>
+      </div>
+      <div class="field">
+        <label for="custom">或自定义</label>
+        <input id="custom" type="text" placeholder="具体版本号,例如 0.1.6-alpha.2"
+               autocomplete="off" spellcheck="false">
+      </div>
+      <div class="row">
+        <button id="update" class="primary">更新并重启</button>
+        <button id="rollback">回滚到上一版本</button>
+      </div>
+    </div>
+
+    <div id="confirmBox" class="confirm" hidden>
+      <p class="warn" id="confirmText"></p>
+      <div class="row">
+        <button id="confirmYes" class="primary">确认执行</button>
+        <button id="confirmNo">取消</button>
+      </div>
+    </div>
+
+    <p class="status" id="status"></p>
+  </section>
+
+  <!-- ② 进度 -->
+  <section class="card" id="progress" hidden>
+    <h2>执行进度</h2>
+    <div class="steps" id="steps"></div>
+  </section>
+
+  <!-- ③ 结果 -->
+  <section class="card" id="result" hidden>
+    <h2 id="resultTitle">完成</h2>
+    <div class="out" id="newUrl"></div>
+    <div class="row">
+      <button id="reveal">显示完整地址</button>
+      <button id="copy">复制地址</button>
+      <button id="open" class="primary">打开新地址</button>
+    </div>
+    <p class="hint">
+      旧地址与旧登录态已失效。若页面异常,可回到本工具用「回滚到上一版本」退回。
+    </p>
+  </section>
+</main>
+
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+/* 🤖 DSH 更新专用样式(通用部分在 src/shared/base.css) */
+
+.versions {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+}
+
+.ver-line {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.ver-line:last-child {
+  margin-bottom: 0;
+}
+
+.ver-line .label {
+  flex: 0 0 76px;
+  color: var(--muted);
+}
+
+.ver-line b {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.field label {
+  flex: 0 0 62px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.field select,
+.field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 二次确认区:醒目但不刺眼 */
+.confirm {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+}
+
+.confirm .warn {
+  margin: 0 0 10px;
+  color: var(--warn-ink);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.status {
+  margin: 12px 0 0;
+  min-height: 1.6em;
+  font-size: 13.5px;
+  word-break: break-all;
+}
+
+.status.ok { color: var(--ok); }
+.status.err { color: var(--err); }
+.status.warn { color: var(--warn-ink); }
+
+/* ---- 进度步骤 ---- */
+.steps {
+  display: grid;
+  gap: 8px;
+}
+
+.step {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.step .dot {
+  flex: 0 0 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.step.done .dot { color: var(--ok); }
+.step.failed .dot { color: var(--err); }
+.step.doing .dot { color: var(--accent); }
+.step.doing .text { color: var(--ink-strong); }
+.step.failed .text { color: var(--err); }
+
+.step .detail {
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+#newUrl {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+  margin: 10px 0 12px;
+}
+
+.versions .hint,
+.versions .warn {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}

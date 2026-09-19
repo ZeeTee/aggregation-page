@@ -55,6 +55,17 @@ export interface ServerEnv {
     /** 两次成功添加之间的最小间隔秒数(0 = 不限制) */
     addCooldownSeconds: number;
   };
+  /** DSH 更新工具配置 */
+  dshUpdate: {
+    npmBin: string;
+    dshPackage: string;
+    dshModuleDir: string;
+    patchScript: string;
+    patchHost: string;
+    stateFile: string;
+    installTimeoutMs: number;
+    cooldownSeconds: number;
+  };
 }
 
 /** 解析 .env 并注入 process.env(不覆盖已存在的变量)。返回注入的键数量。 */
@@ -122,6 +133,16 @@ export function readServerEnv(root: string, env: NodeJS.ProcessEnv = process.env
       appName: env['DSH_APP_NAME'] ?? 'dsh',
       pm2Home: env['PM2_HOME'] ?? '/root/.pm2',
       cooldownSeconds: nonNegative(rawCooldown, 60),
+    },
+    dshUpdate: {
+      npmBin: env['DSH_NPM_BIN'] ?? '/usr/bin/npm',
+      dshPackage: env['DSH_PACKAGE'] ?? '@deepseek-ai/dsh',
+      dshModuleDir: env['DSH_MODULE_DIR'] ?? '/usr/local/lib/node_modules/@deepseek-ai/dsh',
+      patchScript: env['DSH_PATCH_SCRIPT'] ?? '/root/dsh-loopback-host-patch.sh',
+      patchHost: env['DSH_PATCH_HOST'] ?? (env['DSH_PUBLIC_HOST'] ?? 'dsh.zeetng.cloud'),
+      stateFile: env['DSH_UPDATE_STATE'] ?? join(root, 'data', 'dsh-update.json'),
+      installTimeoutMs: positive(Number(env['DSH_UPDATE_TIMEOUT'] ?? '300'), 300) * 1000,
+      cooldownSeconds: nonNegative(Number(env['DSH_UPDATE_COOLDOWN'] ?? '60'), 60),
     },
     news: {
       pythonBin: env['NEWS_PYTHON_BIN'] ?? '/usr/bin/python3',

@@ -74,6 +74,14 @@ const server = createApp({
   dsh: env.dsh,
   dshRestart: env.dshRestart,
   news: env.news,
+  // 更新接口要复用 pm2(重启)与 dsh 登录地址(等新令牌)这两组配置
+  dshUpdate: {
+    ...env.dshUpdate,
+    pm2Bin: env.dshRestart.pm2Bin,
+    appName: env.dshRestart.appName,
+    pm2Home: env.dshRestart.pm2Home,
+    dsh: env.dsh,
+  },
   ...(existsSync(notFoundPage) ? { notFoundPage } : {}),
 });
 
@@ -88,6 +96,7 @@ server.listen(env.port, env.host, () => {
     dshHost: env.dsh.publicHost,
     dshRestartCooldown: env.dshRestart.cooldownSeconds,
     newsProjectDir: env.news.projectDir,
+    dshModuleDir: env.dshUpdate.dshModuleDir,
     logLevel: env.logLevel,
   });
 });

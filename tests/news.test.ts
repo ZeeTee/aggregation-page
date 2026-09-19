@@ -109,6 +109,19 @@ async function start(options: {
       ...(options.realRunner === true ? {} : { run }),
       ...(options.now !== undefined ? { now: options.now } : {}),
     },
+dshUpdate: {
+      npmBin: '/nonexistent/npm',
+      dshPackage: '@deepseek-ai/dsh',
+      dshModuleDir: '/tmp',
+      patchScript: '/nonexistent/patch.sh',
+      patchHost: 'dsh.example.com',
+      stateFile: '/tmp/dsh-update.json',
+      pm2Bin: '/nonexistent/pm2',
+      appName: 'dsh',
+      pm2Home: '/tmp',
+      dsh: { logDir: '/tmp', logPrefix: 'dsh-out', publicHost: 'dsh.example.com', port: 3080 },
+      run: async () => ({ code: 0, stdout: '{}', stderr: '' }),
+    },
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   const address = server.address();

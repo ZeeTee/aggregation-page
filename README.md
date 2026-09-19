@@ -44,9 +44,10 @@ aggregation-page/
 │   ├── dsh-url/                  #   TS 工具(需后端):🔑 DSH 登录地址,含自己的 README
 │   ├── dsh-restart/              #   TS 工具(需后端):🔄 重启 DSH,含自己的 README
 │   ├── manual-news/              #   TS 工具(需后端):📰 手工新闻,含自己的 README
+│   ├── dsh-update/               #   TS 工具(需后端):🤖 DSH 更新,含自己的 README
 │   ├── timestamp/                #   TS 工具:index.html + main.ts + style.css
 │   └── json-format/              #   vanilla 工具(未迁移,整目录原样拷贝)
-├── tests/                        # Vitest:9 个文件 / 113 个用例
+├── tests/                        # Vitest:10 个文件 / 131 个用例
 ├── dist/  dist-server/           # 构建产物(gitignore)
 ├── public/                       # Python 版旧产物(gitignore,回滚期保留)
 ├── deploy/                       # systemd 单元(Node 版 + Python 回滚版)
@@ -63,11 +64,11 @@ npm run build          # 构建前端(dist/)+ 服务端(dist-server/)
 npm start              # 启动服务端(需先 build;默认 127.0.0.1:8080)
 npm run preview        # 只看前端产物 http://127.0.0.1:8081
 npm run typecheck      # tsc 全量类型检查
-npm test               # Vitest(113 个用例 / 9 个文件)
+npm test               # Vitest(131 个用例 / 10 个文件)
 npm run smoke          # 冒烟:16 项状态码断言(--port 8080 打本机,--public 打线上)
 ```
 
-实测:构建 **约 0.16 秒**(前端 0.15s + 服务端 0.02s),113 个测试约 **10 秒**,冒烟 20 项约 0.3 秒。
+实测:构建 **约 0.19 秒**(前端 0.16s + 服务端 0.03s),131 个测试约 **13 秒**,冒烟 23 项约 0.3 秒。
 
 端口约定:线上服务监听 **8080**;开发模式把 API 起在 **8090**,这样 `npm run dev` 不会打扰正在运行的服务。
 
@@ -144,6 +145,8 @@ toast('工具已加载');
 | POST | `/api/dsh/restart` | 🔑⚠️ **需要 `X-Api-Key`**:重启 dsh(pm2 托管)。有副作用,带 60 秒冷却 |
 | GET | `/api/news/manual` | 🔑 **需要 `X-Api-Key`**:手工新闻队列(读 ai-news-daily 的数据) |
 | POST | `/api/news/manual` | 🔑⚠️ **需要 `X-Api-Key`**:添加一条手工新闻(进下一次日报),带 3 秒冷却 |
+| GET | `/api/dsh/update` | 🔑 **需要 `X-Api-Key`**:DSH 版本检测与更新任务进度 |
+| POST | `/api/dsh/update` | 🔑⚠️ **需要 `X-Api-Key`**:更新/回滚 DSH 并重启(**后台任务**),带 60 秒冷却 |
 
 新增接口:在 `server/routes/` 建文件导出工厂函数 → 在 `server/routes/index.ts` **显式注册**
 (需要凭据的标 `auth: true`)→ 共享类型补到 `src/shared/types.ts`。
@@ -172,7 +175,7 @@ AUTH_FAILURE_BUDGET=10   # 全局失败预算:10 分钟内累计失败 10 次 �
 - 前端**每次获取都要重新输入密钥,不做任何保存**(不写 localStorage / sessionStorage / cookie),
   请求结束即清空输入框;密钥只通过 `X-Api-Key` 头发送
 
-**有副作用的接口**(`POST /api/dsh/restart`、`POST /api/news/manual`)额外要求:
+**有副作用的接口**(`POST /api/dsh/restart`、`POST /api/news/manual`、`POST /api/dsh/update`)额外要求:
 
 - 命令与参数必须是**常量**,用 `execFile`(不经 shell)执行,调用方输入不得进入命令
 - 必须能被**反复调用也不至于造成危害**:本接口有 `DSH_RESTART_COOLDOWN`(默认 60 秒)冷却
@@ -274,6 +277,7 @@ sudo systemctl start aggregation-page-python
 | `tools/dsh-url/README.md` | 🔑 DSH 登录地址工具:工作原理、密钥策略、排障清单 |
 | `tools/dsh-restart/README.md` | 🔄 重启 DSH 工具:流程、三道护栏、排障清单 |
 | `tools/manual-news/README.md` | 📰 手工新闻工具:与日报系统(Python)如何打通、安全约束、排障清单 |
+| `tools/dsh-update/README.md` | 🤖 DSH 更新工具:为什么回滚放在工具站、版本通道的坑、安全约束 |
 | `.env.example` | 所有服务端环境变量及含义 |
 
 ## 给 AI 助手的 skill

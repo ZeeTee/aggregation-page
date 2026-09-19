@@ -119,3 +119,60 @@ export interface ManualNewsAddResult {
   entry: ManualNewsEntry | null;
   list: ManualNewsList;
 }
+
+/**
+ * 🤖 DSH 更新工具(需要 X-Api-Key)。
+ *
+ * ⚠️ 这是在更新一个**正在运行、且是当前会话宿主**的程序,所以后端把它做成
+ * **后台任务 + 轮询状态**:npm 安装几十秒,远超接口层 10 秒超时,不可能同步返回。
+ *
+ * 版本判断不做"谁大谁小"的推断:本机同时存在 latest / next / alpha 多个通道,
+ * 且曾经出现已装的 alpha 比 npm 的 latest 还新。所以只如实展示,由人来选。
+ */
+export interface DshUpdateStep {
+  label: string;
+  status: 'doing' | 'done' | 'failed';
+  detail?: string;
+}
+
+export interface DshUpdateJob {
+  action: 'update' | 'rollback';
+  /** 目标版本或通道(latest / next / alpha / 具体版本号) */
+  target: string;
+  /** 本次操作前的版本 */
+  from: string;
+  status: 'running' | 'ok' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  steps: DshUpdateStep[];
+  error?: string;
+  /** 操作后的实际版本 */
+  newVersion?: string;
+  /** 是否成功重打了 loopback 补丁 */
+  patchReapplied?: boolean;
+  /** 新登录地址(没等到就是 null) */
+  loginUrl?: DshLoginUrl | null;
+}
+
+/** GET /api/dsh/update 的响应 */
+export interface DshUpdateStatus {
+  currentVersion: string;
+  /** 通道 → 版本,如 { latest: '0.1.5-rc.2', alpha: '0.1.6-alpha.2' } */
+  channels: Record<string, string>;
+  /** npm 上最近的若干版本(供"指定版本") */
+  recentVersions: string[];
+  registryCheckedAt: string | null;
+  /** 查询 npm 失败时的原因(页面照常可用,只是没有可选目标) */
+  registryError: string | null;
+  /** 可回滚到的版本(上一次成功更新前的版本) */
+  previousVersion: string | null;
+  /** loopback 补丁脚本是否存在 */
+  patchAvailable: boolean;
+  job: DshUpdateJob | null;
+}
+
+/** POST /api/dsh/update 的响应(任务已在后台开跑) */
+export interface DshUpdateStartResult {
+  started: true;
+  job: DshUpdateJob;
+}
