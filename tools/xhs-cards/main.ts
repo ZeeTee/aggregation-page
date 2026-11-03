@@ -86,7 +86,8 @@ function render(): void {
     return;
   }
   resultEl.hidden = false;
-  summaryEl.textContent = `${current.date} · 共 ${current.count} 张`;
+  summaryEl.textContent = `${current.date} · 共 ${current.count} 张`
+    + (current.reused === true ? '(复用已生成的图片,没有重新渲染)' : '');
   for (const file of current.files) {
     const url = cardUrl(current.date, file.name, cacheBust);
 

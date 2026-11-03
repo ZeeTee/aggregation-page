@@ -43,7 +43,9 @@ const PY_MODULE = 'newsdaily.cli.make_cards';
 /** execFile 硬超时:必须明显小于 api.ts 的 10s 单请求超时 */
 const EXEC_TIMEOUT_MS = 8_000;
 /** 两次生成之间的最小间隔(秒)。生成是写文件,属于副作用 */
-const DEFAULT_COOLDOWN_SECONDS = 10;
+// 幂等之后,同一天重复请求约 0.1 秒且不做实际工作,冷却不需要太长;
+// 留着主要是挡住"连续换日期猛点"。
+const DEFAULT_COOLDOWN_SECONDS = 3;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NAME_RE = /^card-\d{2,3}\.png$/;
@@ -119,7 +121,8 @@ function parseResult(stdout: string, log: Logger): XhsCardsResult {
   if (files.length === 0) {
     throw new ApiError(502, 'xhs_command_failed', '生成结果里没有可用的图片');
   }
-  return { date: data.date, count: files.length, files };
+  return { date: data.date, count: files.length, files,
+           reused: (raw as { reused?: unknown }).reused === true };
 }
 
 export function xhsRoutes(deps: XhsDeps): Route[] {

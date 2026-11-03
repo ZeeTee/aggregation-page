@@ -192,4 +192,6 @@ export interface XhsCardsResult {
   /** 张数 */
   count: number;
   files: XhsCardFile[];
+  /** true 表示这次没有重新渲染,直接复用了已有图片(同一天同一版缓存) */
+  reused?: boolean;
 }
