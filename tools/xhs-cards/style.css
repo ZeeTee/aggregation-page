@@ -41,3 +41,10 @@
 .cell a:hover {
   text-decoration: underline;
 }
+
+/* ZIP 是桌面用的次要动作,弱化一点 */
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}

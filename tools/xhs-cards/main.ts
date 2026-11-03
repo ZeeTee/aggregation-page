@@ -17,13 +17,16 @@ import { ApiError, callApi } from '../../src/shared/api';
 import { must } from '../../src/shared/dom';
 import { toast } from '../../src/shared/toast';
 import type { XhsCardsResult } from '../../src/shared/types';
+import { DOWNLOAD_GAP_MS } from './constants';
 import { localDateString } from './date';
+import { canShareFiles, type ShareCapable } from './share';
 import { buildZip } from './zip';
 
 const dateInput = must<HTMLInputElement>('#date');
 const keyInput = must<HTMLInputElement>('#key');
 const goButton = must<HTMLButtonElement>('#go');
 const zipButton = must<HTMLButtonElement>('#zip');
+const saveButton = must<HTMLButtonElement>('#save');
 const statusEl = must('#status');
 const summaryEl = must('#summary');
 const resultEl = must('#result');
@@ -33,6 +36,19 @@ const gridEl = must('#grid');
 let current: XhsCardsResult | null = null;
 /** 缓存击穿参数:重新生成后同一文件名内容会变,必须让浏览器重新取 */
 let cacheBust = Date.now();
+
+/**
+ * 生成后立刻把图片拉进内存。
+ *
+ * 两个原因:
+ *   1. **iOS 要求 navigator.share 必须在用户手势里同步调用** —— 如果点按钮后
+ *      才开始 fetch,手势就丢了,share 会抛 NotAllowedError;
+ *   2. 预取之后 ZIP 打包也不用再等网络。
+ * 8 张 × 约 250KB ≈ 2MB,可以接受。
+ */
+let blobs: File[] = [];
+let ready = false;
+
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -90,6 +106,7 @@ function render(): void {
     cell.append(img, link);
     gridEl.append(cell);
   }
+  void prefetch();
 }
 
 async function generate(): Promise<void> {
@@ -127,17 +144,80 @@ async function generate(): Promise<void> {
   }
 }
 
+async function prefetch(): Promise<void> {
+  blobs = [];
+  ready = false;
+  saveButton.disabled = true;
+  zipButton.disabled = true;
+  if (current === null) return;
+  try {
+    for (const file of current.files) {
+      const response = await fetch(cardUrl(current.date, file.name, cacheBust));
+      if (!response.ok) throw new Error(`${file.name} 取图失败(HTTP ${response.status})`);
+      blobs.push(new File([await response.blob()], `${current.date}-${file.name}`,
+        { type: 'image/png' }));
+    }
+    ready = true;
+  } catch (error) {
+    setStatus(`图片准备失败:${describeError(error)}`, 'err');
+  } finally {
+    saveButton.disabled = !ready;
+    zipButton.disabled = !ready;
+  }
+}
+
+/** 退回逐张下载(桌面浏览器,或系统不支持分享时) */
+async function downloadEach(): Promise<void> {
+  if (current === null) return;
+  for (const file of current.files) {
+    const link = document.createElement('a');
+    link.href = cardUrl(current.date, file.name, cacheBust);
+    link.download = `${current.date}-${file.name}`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    await new Promise((resolve) => setTimeout(resolve, DOWNLOAD_GAP_MS));
+  }
+  setStatus('已逐张开始下载(若浏览器只允许保存第一个,请改用长按图片保存)', 'hint');
+}
+
+/**
+ * 保存到相册:优先走系统分享面板(手机上选「存储图像」即进相册),
+ * 不支持分享就退回逐张下载。
+ */
+async function saveToAlbum(): Promise<void> {
+  if (current === null || !ready) {
+    setStatus('图片还在准备中,请稍候…', 'err');
+    return;
+  }
+  const nav = navigator as unknown as ShareCapable & {
+    share?: (data: ShareData) => Promise<void>;
+  };
+  if (canShareFiles(nav, blobs)) {
+    try {
+      await nav.share?.({ files: blobs, title: `AI 大模型行业日报 · ${current.date}` });
+      setStatus('已打开系统面板,选「存储图像」即可存进相册', 'ok');
+      return;
+    } catch (error) {
+      // 用户主动取消不算失败
+      if ((error as Error).name === 'AbortError') {
+        setStatus('已取消');
+        return;
+      }
+      // 其他异常(比如手势丢失)就退回逐张下载
+    }
+  }
+  await downloadEach();
+}
+
 async function downloadZip(): Promise<void> {
   if (current === null) return;
   zipButton.disabled = true;
   setStatus('打包中…');
   try {
     const entries = [];
-    for (const file of current.files) {
-      const response = await fetch(cardUrl(current.date, file.name, cacheBust));
-      if (!response.ok) throw new Error(`${file.name} 下载失败(HTTP ${response.status})`);
-      const buf = new Uint8Array(await response.arrayBuffer());
-      entries.push({ name: `${current.date}-${file.name}`, data: buf });
+    for (const file of blobs) {
+      entries.push({ name: file.name, data: new Uint8Array(await file.arrayBuffer()) });
     }
     const zip = buildZip(entries);
     const blob = new Blob([zip as BlobPart], { type: 'application/zip' });
@@ -156,6 +236,7 @@ async function downloadZip(): Promise<void> {
 }
 
 goButton.addEventListener('click', () => void generate());
+saveButton.addEventListener('click', () => void saveToAlbum());
 zipButton.addEventListener('click', () => void downloadZip());
 keyInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') void generate();

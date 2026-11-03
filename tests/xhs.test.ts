@@ -9,6 +9,7 @@
  *   5. 图片读取:只允许 `YYYY-MM-DD` + `card-NN.png`,路径穿越一律 400
  *   6. ZIP:store 模式结构与 CRC 正确(用标准测试向量校验)
  *   7. 日期默认值:按**本地**时区取年月日(不是 UTC)
+ *   8. 多张保存:能否走系统分享面板的判断(手机存相册的正路)
  *
  * 全部注入桩执行器,测试永远不会真的去跑 python。
  */
@@ -25,6 +26,7 @@ import { createLogger } from '../server/log.ts';
 import type { NewsDeps } from '../server/routes/news.ts';
 import type { XhsExecResult } from '../server/routes/xhs.ts';
 import { localDateString } from '../tools/xhs-cards/date.ts';
+import { canShareFiles, type ShareCapable } from '../tools/xhs-cards/share.ts';
 import { buildZip, crc32 } from '../tools/xhs-cards/zip.ts';
 
 const silent = createLogger('error', () => undefined);
@@ -379,5 +381,42 @@ describe('日期默认值(本地时区)', () => {
 
   it('跨年边界', () => {
     expect(localDateString(new Date(2025, 11, 31, 23, 59))).toBe('2025-12-31');
+  });
+});
+
+describe('多张保存的能力判断', () => {
+  const files = [{ name: 'a.png' }];
+
+  it('没有 share → false', () => {
+    expect(canShareFiles({}, files)).toBe(false);
+  });
+
+  it('有 share 但没有 canShare → false', () => {
+    expect(canShareFiles({ share: () => undefined }, files)).toBe(false);
+  });
+
+  it('两者都有且 canShare 认可 → true', () => {
+    const nav: ShareCapable = { share: () => undefined, canShare: () => true };
+    expect(canShareFiles(nav, files)).toBe(true);
+  });
+
+  it('canShare 明确拒绝(例如不支持 files)→ false', () => {
+    const nav: ShareCapable = { share: () => undefined, canShare: () => false };
+    expect(canShareFiles(nav, files)).toBe(false);
+  });
+
+  it('canShare 抛异常一律当作不支持', () => {
+    const nav: ShareCapable = {
+      share: () => undefined,
+      canShare: () => {
+        throw new Error('boom');
+      },
+    };
+    expect(canShareFiles(nav, files)).toBe(false);
+  });
+
+  it('没有文件 → false(空分享没意义)', () => {
+    const nav: ShareCapable = { share: () => undefined, canShare: () => true };
+    expect(canShareFiles(nav, [])).toBe(false);
   });
 });

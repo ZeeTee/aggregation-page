@@ -33,9 +33,13 @@
     <h2>结果</h2>
     <p id="summary" class="hint"></p>
     <div class="row">
-      <button id="zip" type="button">打包下载全部</button>
-      <span class="hint">或点单张下载</span>
+      <button id="save" type="button">保存到相册</button>
+      <button id="zip" type="button" class="ghost">打包下载 ZIP</button>
     </div>
+    <p class="hint">
+      手机上点「保存到相册」会打开系统分享面板,选<strong>存储图像</strong>即可一次存多张;
+      也可以直接<strong>长按某张图</strong>保存。ZIP 只适合电脑。
+    </p>
     <div id="grid" class="grid"></div>
   </section>
 </main>
