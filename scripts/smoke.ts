@@ -65,6 +65,10 @@ const checks: Check[] = [
   // DSH 更新接口同理:未授权绝不能触发更新/重启
   { path: '/api/dsh/update', expect: [401, 429] },
   { path: '/api/dsh/update', expect: [401, 429], method: 'POST' },
+  // 小红书卡片:生成是写操作,未授权必须进不去;
+  // 取图接口是公开的(<img> 带不了请求头),但参数不合法应 400
+  { path: '/api/xhs/cards', expect: [401, 429], method: 'POST' },
+  { path: '/api/xhs/card', expect: 400 },
   // 安全:目录穿越必须被挡住
   // · /../ 会被 URL 解析器归一化成 /package.json → 404
   // · /%2e%2e%2f 是"段内编码斜杠",源站 resolveWithin 返回 403;

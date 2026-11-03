@@ -176,3 +176,20 @@ export interface DshUpdateStartResult {
   started: true;
   job: DshUpdateJob;
 }
+
+/** 小红书卡片:一张图 */
+export interface XhsCardFile {
+  /** 文件名,形如 card-01.png */
+  name: string;
+  /** 字节数 */
+  bytes: number;
+}
+
+/** 小红书卡片生成结果(响应体 data) */
+export interface XhsCardsResult {
+  /** 实际使用的日期 YYYY-MM-DD(未指定时是最新一天) */
+  date: string;
+  /** 张数 */
+  count: number;
+  files: XhsCardFile[];
+}

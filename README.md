@@ -45,9 +45,10 @@ aggregation-page/
 │   ├── dsh-restart/              #   TS 工具(需后端):🔄 重启 DSH,含自己的 README
 │   ├── manual-news/              #   TS 工具(需后端):📰 手工新闻,含自己的 README
 │   ├── dsh-update/               #   TS 工具(需后端):🤖 DSH 更新,含自己的 README
+│   ├── xhs-cards/                #   TS 工具(需后端):📕 小红书卡片,含 zip.ts
 │   ├── timestamp/                #   TS 工具:index.html + main.ts + style.css
 │   └── json-format/              #   vanilla 工具(未迁移,整目录原样拷贝)
-├── tests/                        # Vitest:10 个文件 / 131 个用例
+├── tests/                        # Vitest:11 个文件 / 148 个用例
 ├── dist/  dist-server/           # 构建产物(gitignore)
 ├── public/                       # Python 版旧产物(gitignore,回滚期保留)
 ├── deploy/                       # systemd 单元(Node 版 + Python 回滚版)
@@ -147,6 +148,8 @@ toast('工具已加载');
 | POST | `/api/news/manual` | 🔑⚠️ **需要 `X-Api-Key`**:添加一条手工新闻(进下一次日报),带 3 秒冷却 |
 | GET | `/api/dsh/update` | 🔑 **需要 `X-Api-Key`**:DSH 版本检测与更新任务进度 |
 | POST | `/api/dsh/update` | 🔑⚠️ **需要 `X-Api-Key`**:更新/回滚 DSH 并重启(**后台任务**),带 60 秒冷却 |
+| POST | `/api/xhs/cards` | 🔑⚠️ **需要 `X-Api-Key`**:按当日日报生成小红书卡片(调 ai-news-daily 的 `make_cards`),写文件,带 10 秒冷却 |
+| GET | `/api/xhs/card` | **公开**(`<img>` 带不了请求头):取一张卡片 PNG。`date` 须为 `YYYY-MM-DD`、`name` 须为 `card-NN.png`,越界一律 400 |
 
 新增接口:在 `server/routes/` 建文件导出工厂函数 → 在 `server/routes/index.ts` **显式注册**
 (需要凭据的标 `auth: true`)→ 共享类型补到 `src/shared/types.ts`。
@@ -175,7 +178,7 @@ AUTH_FAILURE_BUDGET=10   # 全局失败预算:10 分钟内累计失败 10 次 �
 - 前端**每次获取都要重新输入密钥,不做任何保存**(不写 localStorage / sessionStorage / cookie),
   请求结束即清空输入框;密钥只通过 `X-Api-Key` 头发送
 
-**有副作用的接口**(`POST /api/dsh/restart`、`POST /api/news/manual`、`POST /api/dsh/update`)额外要求:
+**有副作用的接口**(`POST /api/dsh/restart`、`POST /api/news/manual`、`POST /api/dsh/update`、`POST /api/xhs/cards`)额外要求:
 
 - 命令与参数必须是**常量**,用 `execFile`(不经 shell)执行,调用方输入不得进入命令
 - 必须能被**反复调用也不至于造成危害**:本接口有 `DSH_RESTART_COOLDOWN`(默认 60 秒)冷却
@@ -254,7 +257,7 @@ npm run smoke -- --public
 | 工具构建 | 整目录拷贝 | ✅ TS 工具编译 + vanilla 拷贝 |
 | 工具元数据 | `registry.py` | ✅ `src/build/tools.ts`(构建期强校验) |
 | 静态服务 | `serve.py` | ✅ `server/`(Node,已在 8080 运行) |
-| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url`、`/api/dsh/restart`、`/api/news/manual` |
+| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url`、`/api/dsh/restart`、`/api/news/manual`、`/api/xhs/cards`、`/api/xhs/card` |
 | systemd | `aggregation-page-python.service`(disabled) | ✅ `aggregation-page.service`(enabled) |
 
 **回滚方式**(Python 单元保留一周):

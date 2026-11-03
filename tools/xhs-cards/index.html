@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小红书卡片 · 在线工具箱</title>
+</head>
+<body>
+<header class="site-head"><div class="inner">
+  <a class="brand" href="/">← 在线工具箱</a>
+  <p class="tagline">📕 小红书卡片</p>
+</div></header>
+<main class="wrap">
+  <section class="card">
+    <h2>生成</h2>
+    <p class="hint">
+      按某一天的日报生成一组 3:4 竖版卡片(封面 + 今日头条 + 分类速览),
+      与当天日报是<strong>同一批选稿</strong>。生成一次约 3 秒。
+    </p>
+    <div class="row">
+      <input id="date" type="text" inputmode="numeric" placeholder="日期 YYYY-MM-DD(留空 = 最新一天)"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="row">
+      <input id="key" type="password" placeholder="访问密钥(每次都要重新输入)"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="go" type="button">生成卡片</button>
+    </div>
+    <p id="status" class="hint"></p>
+  </section>
+
+  <section id="result" class="card" hidden>
+    <h2>结果</h2>
+    <p id="summary" class="hint"></p>
+    <div class="row">
+      <button id="zip" type="button">打包下载全部</button>
+      <span class="hint">或点单张下载</span>
+    </div>
+    <div id="grid" class="grid"></div>
+  </section>
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

@@ -19,6 +19,8 @@
  *   POST /api/news/manual      🔑⚠️    添加手工新闻(写入明天日报,带冷却)
  *   GET  /api/dsh/update       🔑      DSH 版本检测 / 更新任务进度
  *   POST /api/dsh/update       🔑⚠️    更新或回滚 DSH(后台任务,带冷却)
+ *   POST /api/xhs/cards        🔑⚠️    按当日日报生成小红书卡片(写文件,带冷却)
+ *   GET  /api/xhs/card         公开    取一张卡片 PNG(路径白名单校验)
  */
 
 import type { Route } from '../api.ts';
@@ -29,6 +31,7 @@ import { echoRoute } from './echo.ts';
 import { healthRoute } from './health.ts';
 import { newsRoutes, type NewsDeps } from './news.ts';
 import { toolsRoute } from './tools.ts';
+import { xhsRoutes } from './xhs.ts';
 
 export interface RouteDeps {
   version: string;
@@ -54,5 +57,8 @@ export function buildRoutes(deps: RouteDeps): Route[] {
     dshRestartRoute(deps.dshRestart),
     ...newsRoutes(deps.news),
     ...dshUpdateRoutes(deps.dshUpdate),
+    // 小红书卡片复用 news 的 pythonBin/projectDir —— 同一台机、同一个
+    // ai-news-daily 项目,没必要再加一套 env 配置(加依赖要同步 4 个测试 harness)。
+    ...xhsRoutes(deps.news),
   ];
 }

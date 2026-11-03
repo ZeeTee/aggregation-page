@@ -1,0 +1,43 @@
+/* 通用组件(卡片/按钮/输入框/提示条)在 src/shared/base.css,这里只写本工具特有的 */
+
+.row > input#date {
+  flex: 1 1 260px;
+}
+
+.row > input#key {
+  flex: 1 1 220px;
+}
+
+/* 卡片缩略图网格:窄屏两列,宽屏三列 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.cell img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #000;
+}
+
+.cell a {
+  font-size: 13px;
+  text-align: center;
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.cell a:hover {
+  text-decoration: underline;
+}
