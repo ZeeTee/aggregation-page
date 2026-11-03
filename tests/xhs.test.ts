@@ -8,6 +8,7 @@
  *   4. 冷却:成功后短时间内再点 → 429 且带 Retry-After
  *   5. 图片读取:只允许 `YYYY-MM-DD` + `card-NN.png`,路径穿越一律 400
  *   6. ZIP:store 模式结构与 CRC 正确(用标准测试向量校验)
+ *   7. 日期默认值:按**本地**时区取年月日(不是 UTC)
  *
  * 全部注入桩执行器,测试永远不会真的去跑 python。
  */
@@ -23,6 +24,7 @@ import { createApp } from '../server/app.ts';
 import { createLogger } from '../server/log.ts';
 import type { NewsDeps } from '../server/routes/news.ts';
 import type { XhsExecResult } from '../server/routes/xhs.ts';
+import { localDateString } from '../tools/xhs-cards/date.ts';
 import { buildZip, crc32 } from '../tools/xhs-cards/zip.ts';
 
 const silent = createLogger('error', () => undefined);
@@ -354,5 +356,28 @@ describe('GET /api/xhs/card', () => {
     } finally {
       await h.close();
     }
+  });
+});
+
+describe('日期默认值(本地时区)', () => {
+  it('按本地年月日拼 YYYY-MM-DD', () => {
+    expect(localDateString(new Date(2026, 0, 5, 0, 30))).toBe('2026-01-05');
+  });
+
+  it('不能用 UTC —— 东八区凌晨时 UTC 还在前一天', () => {
+    const midnight = new Date(2026, 0, 5, 0, 30);
+    // 只有当机器不在 UTC 时才有区别;断言本地结果仍是 5 号即可
+    expect(localDateString(midnight)).toBe('2026-01-05');
+    if (midnight.getTimezoneOffset() !== 0) {
+      expect(midnight.toISOString().slice(0, 10)).not.toBe('2026-01-05');
+    }
+  });
+
+  it('月/日补零', () => {
+    expect(localDateString(new Date(2026, 8, 3))).toBe('2026-09-03');
+  });
+
+  it('跨年边界', () => {
+    expect(localDateString(new Date(2025, 11, 31, 23, 59))).toBe('2025-12-31');
   });
 });

@@ -17,6 +17,7 @@ import { ApiError, callApi } from '../../src/shared/api';
 import { must } from '../../src/shared/dom';
 import { toast } from '../../src/shared/toast';
 import type { XhsCardsResult } from '../../src/shared/types';
+import { localDateString } from './date';
 import { buildZip } from './zip';
 
 const dateInput = must<HTMLInputElement>('#date');
@@ -35,6 +36,9 @@ let cacheBust = Date.now();
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// 日期默认填**今天**(本地时区)。清空它则回退成"最新一天"。
+dateInput.value = localDateString(new Date());
+
 /** 拼一张卡片的访问地址(`<img src>` 与下载链接共用) */
 export function cardUrl(date: string, name: string, bust: number): string {
   const params = new URLSearchParams({ date, name, t: String(bust) });
@@ -51,7 +55,7 @@ export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'generate_cooldown') return error.message;
     if (error.code === 'xhs_command_failed') {
-      return '生成失败:该日期可能还没有日报缓存,换一天或先跑一次日报。';
+      return '生成失败:这一天还没有日报缓存。今天的日报通常 07:00 之后才有,可换前一天试试。';
     }
     if (error.code === 'invalid_date') return '日期格式不对,应为 YYYY-MM-DD。';
     return `${error.message}(${error.code})`;
