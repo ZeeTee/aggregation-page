@@ -195,3 +195,14 @@ export interface XhsCardsResult {
   /** true 表示这次没有重新渲染,直接复用了已有图片(同一天同一版缓存) */
   reused?: boolean;
 }
+
+/** 小红书卡片:某天已生成多少张 */
+export interface XhsDateEntry {
+  date: string;
+  count: number;
+}
+
+/** 小红书卡片:已有卡片的日期清单(GET /api/xhs/dates) */
+export interface XhsDates {
+  dates: XhsDateEntry[];
+}

@@ -12,19 +12,14 @@
 </div></header>
 <main class="wrap">
   <section class="card">
-    <h2>生成</h2>
+    <h2>选择日期</h2>
     <p class="hint">
-      按某一天的日报生成一组 3:4 竖版卡片(封面 + 今日头条 + 分类速览),
-      与当天日报是<strong>同一批选稿</strong>。生成一次约 3 秒。
+      卡片随日报<strong>每天 07:00 自动生成</strong>,与当天日报是同一批选稿。
+      直接选日期下载即可,不需要密钥。产物保留 7 天。
     </p>
     <div class="row">
-      <input id="date" type="text" inputmode="numeric" placeholder="日期 YYYY-MM-DD(清空 = 最新一天)"
-             autocomplete="off" autocapitalize="off" spellcheck="false">
-    </div>
-    <div class="row">
-      <input id="key" type="password" placeholder="访问密钥(每次都要重新输入)"
-             autocomplete="off" autocapitalize="off" spellcheck="false">
-      <button id="go" type="button">生成卡片</button>
+      <select id="date"></select>
+      <button id="reload" type="button" class="ghost">刷新列表</button>
     </div>
     <p id="status" class="hint"></p>
   </section>
@@ -41,6 +36,19 @@
       也可以直接<strong>长按某张图</strong>保存。ZIP 只适合电脑。
     </p>
     <div id="grid" class="grid"></div>
+  </section>
+
+  <section class="card">
+    <h2>重新生成</h2>
+    <p class="hint">
+      只有想强制重做某一天时才需要(例如日报缓存刚补了手工新闻)。
+      需要访问密钥,点完就清空。
+    </p>
+    <div class="row">
+      <input id="key" type="password" placeholder="访问密钥"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="regen" type="button" class="ghost">重新生成所选日期</button>
+    </div>
   </section>
 </main>
 <script type="module" src="./main.ts"></script>

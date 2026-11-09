@@ -48,3 +48,14 @@ button.ghost {
   border: 1px solid var(--line);
   color: var(--muted);
 }
+
+/* 日期下拉框:与 base.css 里的 input 视觉对齐 */
+select#date {
+  flex: 1 1 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+}

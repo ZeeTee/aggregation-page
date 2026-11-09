@@ -2,8 +2,15 @@
  * 小红书卡片接口 —— 按当日日报生成图片,再把这些图片读回来
  * ============================================================================
  *
- *   POST /api/xhs/cards                 生成卡片(🔑,有副作用 → 带冷却)
+ *   GET  /api/xhs/dates                 有哪些日期已生成卡片(公开)
+ *   GET  /api/xhs/cards?date=           读某天已生成的卡片清单(公开,不生成)
+ *   POST /api/xhs/cards                 重新生成卡片(🔑,有副作用 → 带冷却)
  *   GET  /api/xhs/card?date=&name=      取一张 PNG(公开)
+ *
+ * ── 为什么读和写分成两个接口 ────────────────────────────────────────────
+ * 卡片已经并进日报流程(cron 每天 07:00 自动生成、并随 output/ 入库),
+ * 所以工具站的常态是**浏览和下载**,不该每次都输密钥、也不该重复渲染。
+ * 只有"想强制重做某天"才需要 POST(带密钥)。
  *
  * 为什么后端是"调 Python 命令":
  * 卡片的排版逻辑(分页、折行、字号阶梯、与日报同一批选稿)全在 ai-news-daily 的
@@ -31,7 +38,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
 import type { XhsCardsResult, XhsCardFile } from '../../src/shared/types.ts';
@@ -49,6 +56,7 @@ const DEFAULT_COOLDOWN_SECONDS = 3;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NAME_RE = /^card-\d{2,3}\.png$/;
+const DATE_DIR_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface XhsExecResult {
   code: number;
@@ -125,6 +133,44 @@ function parseResult(stdout: string, log: Logger): XhsCardsResult {
            reused: (raw as { reused?: unknown }).reused === true };
 }
 
+/** 某天 xhs 目录下的卡片(按文件名排序 = 编号顺序);没有就返回空数组 */
+async function readDayCards(projectDir: string, date: string): Promise<XhsCardFile[]> {
+  const dir = join(projectDir, 'output', date, 'xhs');
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const out: XhsCardFile[] = [];
+  for (const name of names.filter((n) => NAME_RE.test(n)).sort()) {
+    try {
+      const bytes = (await readFile(join(dir, name))).byteLength;
+      out.push({ name, bytes });
+    } catch {
+      // 单个文件读不到就跳过,不影响其它卡片
+    }
+  }
+  return out;
+}
+
+/** 所有已有卡片的日期,新的在前 */
+async function listCardDates(projectDir: string): Promise<Array<{ date: string; count: number }>> {
+  let entries: string[];
+  try {
+    entries = await readdir(join(projectDir, 'output'));
+  } catch {
+    return [];
+  }
+  const dates = entries.filter((e) => DATE_DIR_RE.test(e)).sort().reverse();
+  const out: Array<{ date: string; count: number }> = [];
+  for (const date of dates) {
+    const cards = await readDayCards(projectDir, date);
+    if (cards.length > 0) out.push({ date, count: cards.length });
+  }
+  return out;
+}
+
 export function xhsRoutes(deps: XhsDeps): Route[] {
   const run = deps.run ?? defaultRun(deps);
   const now = deps.now ?? (() => Date.now());
@@ -136,7 +182,7 @@ export function xhsRoutes(deps: XhsDeps): Route[] {
     path: '/api/xhs/cards',
     auth: true,
     handle: async ({ body, log }) => {
-      const input = (body ?? {}) as { date?: unknown };
+      const input = (body ?? {}) as { date?: unknown; force?: unknown };
       let date: string | undefined;
       if (input.date !== undefined && input.date !== null && input.date !== '') {
         if (typeof input.date !== 'string' || !DATE_RE.test(input.date)) {
@@ -154,7 +200,10 @@ export function xhsRoutes(deps: XhsDeps): Route[] {
         }
       }
 
+      // force=true 才真的重渲染;否则 make_cards 会因幂等直接复用
+      const force = input.force === true;
       const args = date === undefined ? [] : [`--date=${date}`];
+      if (force) args.push('--force');
       const result = await run(args);
 
       if (result.killed === true) {
@@ -209,5 +258,29 @@ export function xhsRoutes(deps: XhsDeps): Route[] {
     },
   };
 
-  return [cardsRoute, cardRoute];
+  const datesRoute: Route = {
+    method: 'GET',
+    path: '/api/xhs/dates',
+    handle: async () => ({ dates: await listCardDates(deps.projectDir) }),
+  };
+
+  // 只读:把某天已经生成好的卡片列出来,不触发生成
+  const listRoute: Route = {
+    method: 'GET',
+    path: '/api/xhs/cards',
+    handle: async ({ query }) => {
+      const date = query.get('date') ?? '';
+      if (!DATE_DIR_RE.test(date)) {
+        throw new ApiError(400, 'invalid_date', '日期格式应为 YYYY-MM-DD');
+      }
+      const files = await readDayCards(deps.projectDir, date);
+      if (files.length === 0) {
+        throw new ApiError(404, 'card_not_found',
+          '这一天还没有卡片(日报流程每天 07:00 生成,7 天后会清理)');
+      }
+      return { date, count: files.length, files };
+    },
+  };
+
+  return [datesRoute, listRoute, cardsRoute, cardRoute];
 }

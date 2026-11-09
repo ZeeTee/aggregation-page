@@ -148,7 +148,9 @@ toast('工具已加载');
 | POST | `/api/news/manual` | 🔑⚠️ **需要 `X-Api-Key`**:添加一条手工新闻(进下一次日报),带 3 秒冷却 |
 | GET | `/api/dsh/update` | 🔑 **需要 `X-Api-Key`**:DSH 版本检测与更新任务进度 |
 | POST | `/api/dsh/update` | 🔑⚠️ **需要 `X-Api-Key`**:更新/回滚 DSH 并重启(**后台任务**),带 60 秒冷却 |
-| POST | `/api/xhs/cards` | 🔑⚠️ **需要 `X-Api-Key`**:按当日日报生成小红书卡片(调 ai-news-daily 的 `make_cards`),写文件,带 10 秒冷却 |
+| POST | `/api/xhs/cards` | 🔑⚠️ **需要 `X-Api-Key`**:**强制重新生成**某天的卡片(调 ai-news-daily 的 `make_cards --force`),带 3 秒冷却。日常不需要 —— cron 每天 07:00 已自动生成 |
+| GET | `/api/xhs/dates` | **公开**:哪些日期已生成卡片(新的在前,带张数) |
+| GET | `/api/xhs/cards` | **公开**:读某天已生成的卡片清单(`?date=`),**只读、不生成**。没有则 404 |
 | GET | `/api/xhs/card` | **公开**(`<img>` 带不了请求头):取一张卡片 PNG。`date` 须为 `YYYY-MM-DD`、`name` 须为 `card-NN.png`,越界一律 400 |
 
 新增接口:在 `server/routes/` 建文件导出工厂函数 → 在 `server/routes/index.ts` **显式注册**
@@ -257,7 +259,7 @@ npm run smoke -- --public
 | 工具构建 | 整目录拷贝 | ✅ TS 工具编译 + vanilla 拷贝 |
 | 工具元数据 | `registry.py` | ✅ `src/build/tools.ts`(构建期强校验) |
 | 静态服务 | `serve.py` | ✅ `server/`(Node,已在 8080 运行) |
-| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url`、`/api/dsh/restart`、`/api/news/manual`、`/api/xhs/cards`、`/api/xhs/card` |
+| 后端接口 | 无 | ✅ `/api/health`、`/api/tools`、`/api/echo`、`/api/dsh/login-url`、`/api/dsh/restart`、`/api/news/manual`、`/api/xhs/dates`、`/api/xhs/cards`、`/api/xhs/card` |
 | systemd | `aggregation-page-python.service`(disabled) | ✅ `aggregation-page.service`(enabled) |
 
 **回滚方式**(Python 单元保留一周):

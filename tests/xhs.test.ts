@@ -10,6 +10,7 @@
  *   6. ZIP:store 模式结构与 CRC 正确(用标准测试向量校验)
  *   7. 日期默认值:按**本地**时区取年月日(不是 UTC)
  *   8. 多张保存:能否走系统分享面板的判断(手机存相册的正路)
+ *   9. 读接口(GET /api/xhs/dates、GET /api/xhs/cards)**绝不触发** Python 执行
  *
  * 全部注入桩执行器,测试永远不会真的去跑 python。
  */
@@ -49,6 +50,11 @@ function makeProjectDir(): string {
   const xhs = join(dir, 'output', DATE, 'xhs');
   mkdirSync(xhs, { recursive: true });
   writeFileSync(join(xhs, 'card-01.png'), FAKE_PNG);
+  writeFileSync(join(xhs, 'card-02.png'), FAKE_PNG);
+  // 更早一天也有一张
+  const older = join(dir, 'output', '2026-11-08', 'xhs');
+  mkdirSync(older, { recursive: true });
+  writeFileSync(join(older, 'card-01.png'), FAKE_PNG);
   // 目录外的文件,用于验证路径穿越被挡住
   writeFileSync(join(dir, 'secret.txt'), 'TOP-SECRET');
   return dir;
@@ -418,5 +424,72 @@ describe('多张保存的能力判断', () => {
   it('没有文件 → false(空分享没意义)', () => {
     const nav: ShareCapable = { share: () => undefined, canShare: () => true };
     expect(canShareFiles(nav, [])).toBe(false);
+  });
+});
+
+describe('GET /api/xhs/dates 与 GET /api/xhs/cards(只读)', () => {
+  it('列出有卡片的日期,新的在前,带张数', async () => {
+    const h = await start();
+    try {
+      const res = await fetch(`${h.base}/api/xhs/dates`);
+      expect(res.status).toBe(200);
+      const payload = (await res.json()) as { data: { dates: Array<{ date: string; count: number }> } };
+      expect(payload.data.dates).toEqual([
+        { date: '2026-11-08', count: 1 },   // 新的在前
+        { date: DATE, count: 2 },
+      ]);
+      // 关键:读接口不能去跑 python
+      expect(h.calls).toHaveLength(0);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('读某天的卡片清单:按文件名排序,带字节数,且不执行命令', async () => {
+    const h = await start();
+    try {
+      const res = await fetch(`${h.base}/api/xhs/cards?date=${DATE}`);
+      expect(res.status).toBe(200);
+      const payload = (await res.json()) as {
+        data: { date: string; count: number; files: Array<{ name: string; bytes: number }> };
+      };
+      expect(payload.data.date).toBe(DATE);
+      expect(payload.data.count).toBe(2);
+      expect(payload.data.files.map((f) => f.name)).toEqual(['card-01.png', 'card-02.png']);
+      expect(payload.data.files[0]?.bytes).toBe(FAKE_PNG.length);
+      expect(h.calls).toHaveLength(0);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('日期非法 → 400;那天没卡片 → 404', async () => {
+    const h = await start();
+    try {
+      expect((await fetch(`${h.base}/api/xhs/cards?date=2026-1-1`)).status).toBe(400);
+      expect((await fetch(`${h.base}/api/xhs/cards`)).status).toBe(400);
+      const missing = await fetch(`${h.base}/api/xhs/cards?date=2020-01-01`);
+      expect(missing.status).toBe(404);
+      const payload = (await missing.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('card_not_found');
+      expect(h.calls).toHaveLength(0);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('POST 带 force 时把 --force 传给 Python', async () => {
+    // 本用例会连续发两次 POST,关掉冷却否则第二次直接 429
+    const h = await start({ cooldownSeconds: 0 });
+    try {
+      await generate(h.base, { date: DATE, force: true }, KEY);
+      expect(h.calls).toEqual([[`--date=${DATE}`, '--force']]);
+      // 不带 force 时不传
+      h.calls.length = 0;
+      await generate(h.base, { date: DATE }, KEY);
+      expect(h.calls).toEqual([[`--date=${DATE}`]]);
+    } finally {
+      await h.close();
+    }
   });
 });
